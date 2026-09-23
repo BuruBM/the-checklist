@@ -39,11 +39,13 @@
   --sky: #E4EEF0;
   --danger: #B5412E;
   --shadow: 0 1px 2px rgba(29,42,33,.06), 0 6px 18px rgba(29,42,33,.07);
-  --c-casa: #D9825B;
+  --c-gatos: #E0873F;
+  --c-casa: #9C7456;
+  --c-viaje: #2A9EA6;
   --c-trabajo: #4C7FBF;
   --c-personal: #B569A8;
   --c-recados: #C79A2A;
-  --c-salud: #3F9A76;
+  --c-salud: #D0617E;
   --c-otros: #7E8A80;
   --radius: 14px;
   --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
@@ -118,6 +120,19 @@ button { cursor: pointer; }
 .top h1 { font-size: clamp(30px, 5vw, 46px); font-weight: 800; letter-spacing: -.02em; line-height: 1; }
 .top h1 em { font-style: normal; color: var(--leaf); }
 .top .lede { color: var(--ink-soft); margin: 8px 0 0; max-width: 56ch; }
+.goal { margin-top: 12px; }
+.goal-pill {
+  border: 0; border-radius: 99px; padding: 7px 14px; font-weight: 700; font-size: 14px;
+  background: color-mix(in srgb, var(--c-viaje) 16%, var(--surface)); color: var(--ink); display: inline-flex; gap: 8px; align-items: baseline; flex-wrap: wrap; text-align: left;
+}
+.goal-pill b { font-family: var(--display); font-size: 18px; color: var(--c-viaje); }
+.goal-pill span { font-weight: 500; color: var(--ink-soft); }
+.goal-pill.empty { background: transparent; border: 1px dashed var(--line); color: var(--ink-soft); font-weight: 600; }
+.goal-form { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.goal-form input { border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; background: var(--surface); min-width: 0; }
+.rep { color: var(--c-viaje); font-weight: 700; }
+.task.waiting { opacity: .65; }
+.task.waiting .rep { width: 28px; text-align: center; }
 .sync { font-size: 12px; color: var(--ink-soft); display: inline-flex; align-items: center; gap: 6px; }
 .sync::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-soft); }
 .sync[data-state="live"]::before { background: var(--leaf); }
@@ -298,6 +313,14 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     <div>
       <div class="eyebrow" id="today-label">Hoy</div>
       <h1>Jardín de <em>pendientes</em></h1>
+      <div class="goal" id="goal">
+        <button class="goal-pill" id="goal-pill" type="button"></button>
+        <form class="goal-form" id="goal-form" hidden>
+          <input type="text" id="goal-title" placeholder="¿Qué se viene? (ej: Viaje)" aria-label="Meta" maxlength="40">
+          <input type="date" id="goal-date" aria-label="Fecha">
+          <button class="btn primary small" type="submit">Listo</button>
+        </form>
+      </div>
       <p class="lede" id="lede">Cada tarea que terminas planta una flor. Saca las cosas de tu cabeza, elige una pequeña y empieza por ahí.</p>
     </div>
     <span class="sync" id="sync" data-state="local">Guardado en este navegador</span>
@@ -333,6 +356,11 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
             <button type="button" data-size="l" aria-pressed="false">Grande</button>
           </div>
           <label class="toggle"><input type="checkbox" id="add-today"> Para hoy</label>
+          <select id="add-repeat" aria-label="Repetir">
+            <option value="">Una vez</option>
+            <option value="daily">Cada día</option>
+            <option value="weekly">Cada semana</option>
+          </select>
           <button class="btn primary small" type="submit" style="margin-left:auto">Agregar</button>
         </div>
       </form>
@@ -400,11 +428,13 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
 
   /* ================= constants ================= */
   const CATS = {
+    gatos: { label: "Gatos", color: "var(--c-gatos)" },
     casa: { label: "Casa", color: "var(--c-casa)" },
+    viaje: { label: "Viaje", color: "var(--c-viaje)" },
     trabajo: { label: "Trabajo", color: "var(--c-trabajo)" },
+    recados: { label: "Compras", color: "var(--c-recados)" },
+    salud: { label: "Salud y cuidado", color: "var(--c-salud)" },
     personal: { label: "Personal", color: "var(--c-personal)" },
-    recados: { label: "Recados", color: "var(--c-recados)" },
-    salud: { label: "Salud", color: "var(--c-salud)" },
     otros: { label: "Otros", color: "var(--c-otros)" },
   };
   const SIZES = {
@@ -456,7 +486,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
   const LS_KEY = "jardin-pendientes-v1";
 
   /* ================= state ================= */
-  const blank = () => ({ tasks: [], rewards: [], earned: 0, spent: 0, days: {}, badges: {}, redeemed: [], lastDoneAt: 0, comboCount: 0, archived: [], cleared: 0, lastBackup: 0 });
+  const blank = () => ({ tasks: [], rewards: [], earned: 0, spent: 0, days: {}, badges: {}, redeemed: [], lastDoneAt: 0, comboCount: 0, archived: [], cleared: 0, lastBackup: 0, goalTitle: "", goalDate: "" });
   let state = blank();
   let tab = "today";
   let addSize = "s";
@@ -478,6 +508,8 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       id: String(t.id || uid()), text: t.text.slice(0, 200), cat: CATS[t.cat] ? t.cat : "otros",
       size: SIZES[t.size] ? t.size : "m", today: !!t.today, done: !!t.done, doneAt: t.doneAt || 0, createdAt: t.createdAt || Date.now(),
       earned: Number(t.earned) || 0,
+      repeat: t.repeat === "daily" || t.repeat === "weekly" ? t.repeat : "", nextDue: Number(t.nextDue) || 0,
+      parentId: t.parentId ? String(t.parentId) : "",
     }));
     b.rewards = (Array.isArray(s.rewards) ? s.rewards : []).filter(r => r && typeof r.text === "string")
       .map(r => ({ id: String(r.id || uid()), text: r.text.slice(0, 80), cost: Math.max(5, Number(r.cost) || 50) }));
@@ -555,19 +587,42 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     while (state.days[dayKey(d)] > 0) { n++; d.setDate(d.getDate() - 1); }
     return n;
   }
+  const isPending = (t) => !t.done && !(t.repeat && t.nextDue > Date.now());
+  const isToday = (t) => t.today || !!t.repeat;
+  const REPEATS = { daily: "cada día", weekly: "cada semana" };
+  function nextDueFrom(repeat, now) {
+    const d = new Date(now); d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + (repeat === "weekly" ? 7 : 1));
+    return d.getTime();
+  }
+  function daysLeft() {
+    if (!state.goalDate) return null;
+    const [y, m, d] = state.goalDate.split("-").map(Number);
+    if (!y || !m || !d) return null;
+    const goal = new Date(y, m - 1, d), today = new Date(); today.setHours(0, 0, 0, 0);
+    return Math.round((goal - today) / 86400000);
+  }
   const wallet = () => Math.max(0, state.earned - state.spent);
   const doneTasks = () => state.tasks.filter(t => t.done);
 
   /* ================= actions ================= */
-  function addTask(text, cat, size, today) {
+  function addTask(text, cat, size, today, repeat) {
     text = text.trim(); if (!text) return null;
-    const t = { id: uid(), text: text.slice(0, 200), cat: CATS[cat] ? cat : "otros", size: SIZES[size] ? size : "m", today: !!today, done: false, doneAt: 0, createdAt: Date.now() };
+    const t = { id: uid(), text: text.slice(0, 200), cat: CATS[cat] ? cat : "otros", size: SIZES[size] ? size : "m", today: !!today, done: false, doneAt: 0, createdAt: Date.now(),
+      repeat: REPEATS[repeat] ? repeat : "", nextDue: 0, parentId: "" };
     state.tasks.push(t); return t;
   }
 
   function complete(t, originEl) {
     if (t.done) return;
     const now = Date.now();
+    if (t.repeat) {
+      // La tarea repetida vuelve a aparecer mañana (o en una semana); lo hecho queda como flor.
+      const inst = { id: uid(), text: t.text, cat: t.cat, size: t.size, today: true, done: false, doneAt: 0, createdAt: now, repeat: "", nextDue: 0, parentId: t.id };
+      t.nextDue = nextDueFrom(t.repeat, now);
+      state.tasks.push(inst);
+      t = inst;
+    }
     t.done = true; t.doneAt = now;
     let pts = SIZES[t.size].pts;
     let bonus = 0;
@@ -599,6 +654,11 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     const k = dayKey(new Date(t.doneAt));
     if (state.days[k]) state.days[k]--;
     t.done = false; t.doneAt = 0; t.earned = 0;
+    if (t.parentId) {
+      const parent = state.tasks.find(x => x.id === t.parentId);
+      state.tasks.splice(state.tasks.indexOf(t), 1);
+      if (parent) parent.nextDue = 0;
+    }
     persist(); render();
   }
 
@@ -673,14 +733,17 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       el("span", { class: "cat" }, el("i", { class: "dot", style: `background:${c.color}` }), c.label),
       el("span", { title: SIZES[t.size].label }, el("span", { class: "seeds", text: SIZES[t.size].seeds }), " " + SIZES[t.size].label),
       el("span", { class: "pts num", text: t.done ? `+${t.earned || SIZES[t.size].pts} pts` : `${SIZES[t.size].pts} pts` }),
+      t.repeat ? el("span", { class: "rep", text: `↻ ${REPEATS[t.repeat]}` }) : null,
     );
     const body = el("div", { class: "tbody" }, el("div", { class: "ttext", text: t.text }), meta);
     const acts = el("div", { class: "tactions" });
-    if (!t.done) {
+    if (!t.done && !t.repeat) {
       const star = el("button", { class: "icon" + (t.today ? " on" : ""), type: "button", "aria-label": t.today ? "Quitar de hoy" : "Para hoy", title: t.today ? "Quitar de hoy" : "Para hoy (+5 pts)" });
       star.append(svgIcon("star"));
       star.addEventListener("click", () => { t.today = !t.today; persist(); render(); });
       acts.append(star);
+    }
+    if (!t.done) {
       if (sample && t.size !== "s") {
         const sp = el("button", { class: "icon", type: "button", "aria-label": "Dividir en pasitos con Claude", title: "Dividir en pasitos (Claude)" });
         sp.append(svgIcon("split"));
@@ -698,8 +761,8 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
 
   function renderList() {
     const root = $("list"); root.replaceChildren();
-    const pending = state.tasks.filter(t => !t.done);
-    const today = pending.filter(t => t.today);
+    const pending = state.tasks.filter(isPending);
+    const today = pending.filter(isToday);
     const done = doneTasks().sort((a, b) => b.doneAt - a.doneAt);
     $("c-today").textContent = today.length;
     $("c-all").textContent = pending.length;
@@ -740,6 +803,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
         }
       }
     } else if (tab === "all") {
+      const waiting = state.tasks.filter(t => t.repeat && !isPending(t));
       if (!pending.length) root.append(el("div", { class: "empty" }, el("strong", { text: "¡Todo hecho!" }), el("span", { text: "No queda nada pendiente. Qué alivio." })));
       for (const [key, c] of Object.entries(CATS)) {
         const items = pending.filter(t => t.cat === key);
@@ -747,6 +811,16 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
         const g = el("ul", { class: "list" }); items.forEach(t => g.append(taskRow(t)));
         root.append(el("div", { class: "group" },
           el("div", { class: "group-title" }, el("i", { class: "dot", style: `background:${c.color}` }), `${c.label} · ${items.length}`), g));
+      }
+      if (waiting.length) {
+        const g = el("ul", { class: "list" });
+        waiting.forEach(t => {
+          const d = new Date(t.nextDue);
+          const when = dayKey(d) === dayKey(new Date(Date.now() + 86400000)) ? "mañana" : d.toLocaleDateString("es", { weekday: "long", day: "numeric" });
+          g.append(el("li", { class: "task waiting" }, el("span", { class: "rep", text: "✓" }), el("div", { class: "tbody" },
+            el("div", { class: "ttext", text: t.text }), el("div", { class: "meta", text: `Hecha. Vuelve ${when}.` })), el("span")));
+        });
+        root.append(el("div", { class: "group" }, el("div", { class: "group-title", text: "Tareas repetidas ya hechas" }), g));
       }
     } else {
       if (!done.length) root.append(el("div", { class: "empty" }, el("strong", { text: "Aquí verás todo lo que ya lograste." }), el("span", { text: "Tu primera tarea terminada está a un clic." })));
@@ -800,6 +874,38 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     justPlanted = null;
   }
 
+  function renderGoal() {
+    const pill = $("goal-pill");
+    const left = daysLeft();
+    pill.replaceChildren();
+    if (left === null) { pill.className = "goal-pill empty"; pill.textContent = "+ Poner una fecha límite (viaje, entrega…)"; return; }
+    pill.className = "goal-pill";
+    const title = state.goalTitle || "Tu meta";
+    const pend = state.tasks.filter(t => isPending(t) && !t.repeat).length;
+    if (left > 1) {
+      const per = Math.ceil(pend / Math.max(1, left - 1));
+      pill.append(`${title}: `, el("b", { class: "num", text: `faltan ${left} días` }),
+        el("span", { text: pend ? `${pend} pendientes · con ${per} por día llegas holgada` : "¡Ya tienes todo listo!" }));
+    } else if (left === 1) {
+      pill.append(`${title}: `, el("b", { text: "¡es mañana!" }), el("span", { text: pend ? `${pend} pendientes · lo que no llegue, puede esperar` : "Todo listo. A disfrutar." }));
+    } else if (left === 0) {
+      pill.append(el("b", { text: `¡Hoy es el día: ${title}!` }), el("span", { text: "Disfruta. Lo que hiciste ya está hecho." }));
+    } else {
+      pill.append(`${title} `, el("b", { text: "ya pasó" }), el("span", { text: "Toca para poner una nueva fecha" }));
+    }
+  }
+  $("goal-pill").addEventListener("click", () => {
+    $("goal-title").value = state.goalTitle; $("goal-date").value = state.goalDate;
+    $("goal-pill").hidden = true; $("goal-form").hidden = false; $("goal-title").focus();
+  });
+  $("goal-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    state.goalTitle = $("goal-title").value.trim().slice(0, 40);
+    state.goalDate = $("goal-date").value;
+    $("goal-pill").hidden = false; $("goal-form").hidden = true;
+    persist(); render();
+  });
+
   function renderStats() {
     const L = levelInfo(state.earned);
     $("lvl-name").textContent = L.name;
@@ -808,7 +914,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     $("st-today").textContent = state.days[dayKey()] || 0;
     $("st-streak").textContent = streak();
     $("wallet").textContent = wallet();
-    const pending = state.tasks.filter(t => !t.done).length;
+    const pending = state.tasks.filter(isPending).length;
     const doneToday = state.days[dayKey()] || 0;
     let lede;
     if (!state.tasks.length) lede = "Cada tarea que terminas planta una flor. Saca las cosas de tu cabeza, elige una pequeña y empieza por ahí.";
@@ -863,7 +969,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
   }
 
   function render() {
-    renderGarden(); renderStats(); renderList(); renderRewards(); renderBadges(); renderData();
+    renderGarden(); renderGoal(); renderStats(); renderList(); renderRewards(); renderBadges(); renderData();
     document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab ? "true" : "false"));
   }
 
@@ -943,7 +1049,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
 Reglas:
 - Una acción por tarea, empieza con un verbo, máximo 70 caracteres.
 - No inventes tareas nuevas. Divide una línea solo si contiene claramente varias cosas distintas.
-- "cat": una de casa, trabajo, personal, recados, salud, otros.
+- "cat": una de gatos, casa, viaje, trabajo, recados (compras), salud (salud y cuidado personal), personal, otros.
 - "size": "s" (menos de 15 min), "m" (15-60 min), "l" (más de 1 hora).
 - "today": true solo si suena urgente o tiene fecha muy próxima; como mucho 3 en true.
 Responde SOLO con JSON: {"tasks":[{"text":"...","cat":"...","size":"s","today":false}]}
@@ -990,11 +1096,11 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
   $("add-form").addEventListener("submit", (e) => {
     e.preventDefault();
     const inp = $("add-text");
-    const t = addTask(inp.value, catSel.value, addSize, $("add-today").checked);
+    const t = addTask(inp.value, catSel.value, addSize, $("add-today").checked, $("add-repeat").value);
     if (!t) return;
     inp.value = "";
-    if (t.today && tab !== "today") tab = "today";
-    if (!t.today && tab === "today" && state.tasks.filter(x => x.today && !x.done).length) tab = "all";
+    if (isToday(t) && tab !== "today") tab = "today";
+    if (!isToday(t) && tab === "today" && state.tasks.filter(x => isToday(x) && isPending(x)).length) tab = "all";
     persist(); render();
   });
 
@@ -1003,10 +1109,33 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
     tab = b.dataset.tab; spotlight = null; render();
   });
 
+  // Etiquetas opcionales en cada línea: #categoria  @rapida|@mediana|@grande  !hoy  !diaria  !semanal
+  const fold = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  function parseLine(line) {
+    const out = { text: line, cat: catSel.value, size: "m", today: false, repeat: "" };
+    out.text = line.replace(/(^|\s)([#@!])([\p{L}\d]+)/gu, (m, sp, sign, word) => {
+      const w = fold(word);
+      if (sign === "#") {
+        const key = Object.keys(CATS).find(k => k === w || fold(CATS[k].label).split(" ")[0] === w);
+        if (key) { out.cat = key; return ""; }
+      } else if (sign === "@") {
+        const size = { s: "s", rapida: "s", rapidita: "s", m: "m", mediana: "m", l: "l", grande: "l" }[w];
+        if (size) { out.size = size; return ""; }
+      } else {
+        if (w === "hoy") { out.today = true; return ""; }
+        if (w === "diaria" || w === "diario") { out.repeat = "daily"; return ""; }
+        if (w === "semanal") { out.repeat = "weekly"; return ""; }
+      }
+      return m;
+    }).replace(/\s{2,}/g, " ").trim();
+    out.text = out.text.charAt(0).toUpperCase() + out.text.slice(1);
+    return out;
+  }
+
   $("dump-add").addEventListener("click", () => {
     const lines = $("dump-text").value.split(/\n+/).map(s => s.replace(/^[\s\-*•·\d.)]+/, "").trim()).filter(Boolean);
     if (!lines.length) { toast("Escribe al menos una cosa, una por línea.", ""); return; }
-    lines.forEach(l => addTask(l, catSel.value, "m", false));
+    lines.forEach(l => { const p = parseLine(l); addTask(p.text, p.cat, p.size, p.today, p.repeat); });
     $("dump-text").value = "";
     if (lines.length >= 5) unlock("dump");
     tab = "all";
@@ -1039,14 +1168,14 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
   });
 
   $("where-start").addEventListener("click", () => {
-    const pending = state.tasks.filter(t => !t.done);
+    const pending = state.tasks.filter(isPending);
     if (!pending.length) { toast(state.tasks.length ? "¡No queda nada! Descansa." : "Primero vacía tu cabeza: escribe todo en el panel de la derecha.", ""); return; }
-    const pool = pending.filter(t => t.today);
+    const pool = pending.filter(isToday);
     const src = pool.length ? pool : pending;
     const min = Math.min(...src.map(sizeRank));
     const choice = pick(src.filter(t => sizeRank(t) === min));
     spotlight = choice.id;
-    tab = choice.today ? "today" : "all";
+    tab = isToday(choice) ? "today" : "all";
     render();
     const row = document.querySelector(`.task[data-id="${choice.id}"]`);
     if (row) row.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
@@ -1133,7 +1262,7 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
   keepDataSafe();
   registerSW();
   window.addEventListener("pagehide", saveLocal);
-  document.addEventListener("visibilitychange", () => { if (document.hidden) saveLocal(); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) saveLocal(); else render(); });
   connectSample().then(s => {
     sample = s;
     if (sample) { $("dump-ai").hidden = false; $("dump-note").hidden = false; render(); }
