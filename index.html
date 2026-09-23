@@ -1,0 +1,1036 @@
+<title>Jardín de pendientes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+:root {
+  --ground: #F1F4EC;
+  --surface: #FBFCF8;
+  --surface-2: #E6ECDF;
+  --ink: #1D2A21;
+  --ink-soft: #55655A;
+  --line: #D3DCCB;
+  --leaf: #3A7A4B;
+  --leaf-ink: #FFFFFF;
+  --marigold: #F0A531;
+  --petal-1: #E7799B;
+  --petal-2: #F0A531;
+  --petal-3: #8E7CE0;
+  --petal-4: #F2D14B;
+  --petal-5: #E86A4F;
+  --stem: #4E8A58;
+  --soil: #CDBFA6;
+  --soil-2: #B8A88C;
+  --sky: #E4EEF0;
+  --danger: #B5412E;
+  --shadow: 0 1px 2px rgba(29,42,33,.06), 0 6px 18px rgba(29,42,33,.07);
+  --c-casa: #D9825B;
+  --c-trabajo: #4C7FBF;
+  --c-personal: #B569A8;
+  --c-recados: #C79A2A;
+  --c-salud: #3F9A76;
+  --c-otros: #7E8A80;
+  --radius: 14px;
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --body: "Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #121813;
+    --surface: #1A231C;
+    --surface-2: #243026;
+    --ink: #E7EEE4;
+    --ink-soft: #A2B2A5;
+    --line: #2F3D32;
+    --leaf: #6CC085;
+    --leaf-ink: #0E1A11;
+    --stem: #5FA56C;
+    --soil: #3A3226;
+    --soil-2: #2E271E;
+    --sky: #17211E;
+    --danger: #F08A73;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 22px rgba(0,0,0,.28);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #121813;
+  --surface: #1A231C;
+  --surface-2: #243026;
+  --ink: #E7EEE4;
+  --ink-soft: #A2B2A5;
+  --line: #2F3D32;
+  --leaf: #6CC085;
+  --leaf-ink: #0E1A11;
+  --stem: #5FA56C;
+  --soil: #3A3226;
+  --soil-2: #2E271E;
+  --sky: #17211E;
+  --danger: #F08A73;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 22px rgba(0,0,0,.28);
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.5;
+  padding-inline: 16px;
+  padding-block: 20px 80px;
+}
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 20px; }
+h1, h2, h3 { font-family: var(--display); margin: 0; text-wrap: balance; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2.5px solid var(--marigold); outline-offset: 2px; border-radius: 8px; }
+.eyebrow { font-size: 12px; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-soft); font-weight: 600; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ---------- header ---------- */
+.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px; }
+.top h1 { font-size: clamp(30px, 5vw, 46px); font-weight: 800; letter-spacing: -.02em; line-height: 1; }
+.top h1 em { font-style: normal; color: var(--leaf); }
+.top .lede { color: var(--ink-soft); margin: 8px 0 0; max-width: 56ch; }
+.sync { font-size: 12px; color: var(--ink-soft); display: inline-flex; align-items: center; gap: 6px; }
+.sync::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-soft); }
+.sync[data-state="live"]::before { background: var(--leaf); }
+
+/* ---------- garden ---------- */
+.garden {
+  background: linear-gradient(to bottom, var(--sky), var(--surface));
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  overflow: hidden;
+  display: grid;
+}
+.garden svg { display: block; width: 100%; height: auto; }
+.garden .soil { fill: var(--soil); }
+.garden .soil2 { fill: var(--soil-2); }
+.garden .stem { stroke: var(--stem); fill: none; stroke-width: 2.4; stroke-linecap: round; }
+.garden .leafshape { fill: var(--stem); }
+.garden .ctr { fill: var(--marigold); }
+.garden .p1 { fill: var(--petal-1); } .garden .p2 { fill: var(--petal-2); } .garden .p3 { fill: var(--petal-3); }
+.garden .p4 { fill: var(--petal-4); } .garden .p5 { fill: var(--petal-5); }
+.garden .sprout { fill: var(--stem); opacity: .55; }
+.garden .emptytxt { fill: var(--ink-soft); font: 500 14px var(--body); }
+.garden .new { transform-box: fill-box; transform-origin: 50% 100%; animation: grow .9s cubic-bezier(.2,1.4,.4,1) both; }
+@keyframes grow { from { transform: scale(.1, 0); } to { transform: scale(1,1); } }
+
+.stats { display: flex; flex-wrap: wrap; gap: 10px 28px; padding: 14px 18px; border-top: 1px solid var(--line); background: var(--surface); align-items: center; }
+.stat { display: grid; gap: 0; }
+.stat b { font-family: var(--display); font-size: 24px; font-weight: 700; line-height: 1.1; }
+.stat span { font-size: 12px; color: var(--ink-soft); }
+.level { flex: 1 1 260px; display: grid; gap: 6px; }
+.level-row { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.level-row strong { font-family: var(--display); font-size: 17px; }
+.bar { height: 10px; background: var(--surface-2); border-radius: 99px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--leaf), var(--marigold)); border-radius: 99px; transition: width .6s ease; }
+
+/* ---------- layout ---------- */
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 20px; align-items: start; }
+@media (max-width: 880px) { .cols { grid-template-columns: minmax(0,1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px; display: grid; gap: 14px; }
+.panel h2 { font-size: 20px; font-weight: 700; }
+.panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.side { display: grid; gap: 20px; }
+
+/* ---------- brain dump ---------- */
+.dump { background: var(--surface-2); border: 0; }
+.dump p { margin: 0; color: var(--ink-soft); font-size: 14px; }
+.dump textarea {
+  width: 100%; min-height: 120px; resize: vertical; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--surface); padding: 12px 14px; line-height: 1.6;
+}
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn {
+  border: 1px solid var(--line); background: var(--surface); padding: 8px 14px; border-radius: 99px;
+  font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 6px;
+}
+.btn:hover { border-color: var(--ink-soft); }
+.btn.primary { background: var(--leaf); color: var(--leaf-ink); border-color: var(--leaf); }
+.btn.primary:hover { filter: brightness(1.07); }
+.btn.sun { background: var(--marigold); color: #2B1D05; border-color: var(--marigold); }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn.small { padding: 5px 11px; font-size: 13px; }
+
+/* ---------- add bar ---------- */
+.add { display: grid; gap: 10px; }
+.add input[type="text"] {
+  width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: var(--ground);
+}
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 99px; padding: 2px; background: var(--ground); }
+.seg button { border: 0; background: transparent; padding: 5px 11px; border-radius: 99px; font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; background: var(--ground); font-size: 13px; font-weight: 600; }
+.toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+
+/* ---------- tabs ---------- */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tabs button { border: 0; background: none; padding: 8px 12px 10px; font-weight: 600; color: var(--ink-soft); border-bottom: 2.5px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-color: var(--leaf); }
+.tabs .count { font-size: 12px; background: var(--surface-2); border-radius: 99px; padding: 1px 7px; margin-left: 4px; }
+
+/* ---------- tasks ---------- */
+.group { display: grid; gap: 6px; }
+.group-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--ink-soft); margin-top: 6px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.task {
+  display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 12px; align-items: center;
+  padding: 10px 10px 10px 12px; border-radius: 12px; background: var(--ground); border: 1px solid transparent;
+  transition: background .2s, opacity .3s;
+}
+.task:hover { border-color: var(--line); }
+.task.spot { border-color: var(--marigold); box-shadow: 0 0 0 3px color-mix(in srgb, var(--marigold) 30%, transparent); }
+.task.done .ttext { text-decoration: line-through; text-decoration-color: var(--ink-soft); color: var(--ink-soft); }
+.check {
+  width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--leaf); background: transparent;
+  display: grid; place-items: center; padding: 0; flex: none; transition: transform .15s;
+}
+.check:hover { transform: scale(1.08); background: color-mix(in srgb, var(--leaf) 12%, transparent); }
+.check svg { width: 16px; height: 16px; opacity: 0; }
+.task.done .check { background: var(--leaf); }
+.task.done .check svg { opacity: 1; stroke: var(--leaf-ink); }
+.tbody { display: grid; gap: 3px; min-width: 0; }
+.ttext { overflow-wrap: anywhere; font-weight: 500; }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; color: var(--ink-soft); align-items: center; }
+.meta .cat { display: inline-flex; align-items: center; gap: 5px; }
+.seeds { letter-spacing: 1px; color: var(--leaf); font-weight: 700; }
+.pts { font-weight: 700; color: var(--ink); }
+.tactions { display: flex; gap: 2px; }
+.icon {
+  border: 0; background: transparent; width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; color: var(--ink-soft); padding: 0;
+}
+.icon:hover { background: var(--surface-2); color: var(--ink); }
+.icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.icon.on { color: var(--marigold); }
+.icon.on svg { fill: var(--marigold); }
+.empty { text-align: center; padding: 26px 10px; color: var(--ink-soft); display: grid; gap: 6px; }
+.empty strong { font-family: var(--display); color: var(--ink); font-size: 18px; }
+.examples { opacity: .6; }
+.examples .tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-soft); }
+
+/* ---------- rewards ---------- */
+.wallet { display: flex; align-items: baseline; gap: 6px; }
+.wallet b { font-family: var(--display); font-size: 28px; color: var(--leaf); }
+.reward { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--ground); }
+.reward .rt { font-weight: 600; overflow-wrap: anywhere; }
+.reward .rc { font-size: 12px; color: var(--ink-soft); }
+.reward .mini { height: 5px; background: var(--surface-2); border-radius: 99px; overflow: hidden; margin-top: 5px; }
+.reward .mini i { display: block; height: 100%; background: var(--marigold); }
+.reward-add { display: grid; grid-template-columns: minmax(0,1fr) 76px auto; gap: 6px; }
+.reward-add input { min-width: 0; border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; background: var(--ground); font-size: 14px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px dashed var(--line); background: transparent; border-radius: 99px; padding: 4px 10px; font-size: 12px; color: var(--ink-soft); }
+.chip:hover { border-color: var(--leaf); color: var(--ink); }
+
+/* ---------- badges ---------- */
+.badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px; }
+.badge { display: grid; justify-items: center; gap: 4px; text-align: center; padding: 10px 6px; border-radius: 12px; background: var(--ground); font-size: 12px; line-height: 1.25; }
+.badge svg { width: 38px; height: 38px; }
+.badge.locked { opacity: .38; filter: grayscale(1); }
+.badge b { font-size: 12px; }
+
+/* ---------- toasts & overlays ---------- */
+.toasts { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 8px; z-index: 50; width: min(440px, calc(100% - 32px)); }
+.toast {
+  background: var(--ink); color: var(--ground); padding: 12px 16px; border-radius: 14px; box-shadow: var(--shadow);
+  display: flex; gap: 10px; align-items: center; justify-content: space-between; animation: pop .35s cubic-bezier(.2,1.4,.4,1);
+}
+.toast .tp { font-family: var(--display); font-weight: 800; color: var(--marigold); white-space: nowrap; }
+.toast button { background: transparent; border: 1px solid color-mix(in srgb, var(--ground) 40%, transparent); color: var(--ground); border-radius: 99px; padding: 3px 10px; font-size: 13px; font-weight: 600; }
+.toast.badge-toast { background: var(--marigold); color: #2B1D05; }
+.toast.badge-toast .tp { color: #2B1D05; }
+@keyframes pop { from { transform: translateY(14px) scale(.96); opacity: 0; } }
+.overlay { position: fixed; inset: 0; background: rgba(12,20,14,.45); display: grid; place-items: center; z-index: 60; padding: 16px; }
+.card { background: var(--surface); border-radius: 22px; padding: 28px 24px; max-width: 380px; width: 100%; text-align: center; display: grid; gap: 10px; box-shadow: var(--shadow); animation: pop .45s cubic-bezier(.2,1.4,.4,1); }
+.card h3 { font-size: 28px; font-weight: 800; }
+.card p { margin: 0; color: var(--ink-soft); }
+#fx { position: fixed; inset: 0; pointer-events: none; z-index: 70; width: 100%; height: 100%; }
+.claude-note { font-size: 12px; color: var(--ink-soft); }
+.busy { opacity: .6; pointer-events: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+@media (max-width: 520px) {
+  .task { grid-template-columns: auto minmax(0,1fr); }
+  .tactions { grid-column: 2; justify-content: flex-start; margin-left: -6px; }
+  .stats { gap: 10px 20px; }
+}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow" id="today-label">Hoy</div>
+      <h1>Jardín de <em>pendientes</em></h1>
+      <p class="lede" id="lede">Cada tarea que terminas planta una flor. Saca las cosas de tu cabeza, elige una pequeña y empieza por ahí.</p>
+    </div>
+    <span class="sync" id="sync" data-state="local">Guardado en este navegador</span>
+  </header>
+
+  <section class="garden" aria-label="Tu jardín">
+    <svg id="garden" viewBox="0 0 800 170" preserveAspectRatio="xMidYMax meet" role="img" aria-label="Jardín con una flor por cada tarea terminada"></svg>
+    <div class="stats">
+      <div class="level">
+        <div class="level-row"><span>Nivel <strong id="lvl-name">Semilla</strong></span><span class="num" id="lvl-next">0 / 50</span></div>
+        <div class="bar"><i id="lvl-bar" style="width:0%"></i></div>
+      </div>
+      <div class="stat"><b class="num" id="st-today">0</b><span>hechas hoy</span></div>
+      <div class="stat"><b class="num" id="st-streak">0</b><span>días seguidos</span></div>
+      <div class="stat"><b class="num" id="st-flowers">0</b><span>flores</span></div>
+    </div>
+  </section>
+
+  <div class="cols">
+    <main class="panel">
+      <div class="panel-head">
+        <h2>Mis cosas</h2>
+        <button class="btn sun small" id="where-start" type="button">¿Por dónde empiezo?</button>
+      </div>
+
+      <form class="add" id="add-form" autocomplete="off">
+        <input type="text" id="add-text" placeholder="Escribe una tarea y pulsa Enter…" aria-label="Nueva tarea" maxlength="160">
+        <div class="row">
+          <select id="add-cat" aria-label="Categoría"></select>
+          <div class="seg" role="group" aria-label="Tamaño" id="add-size">
+            <button type="button" data-size="s" aria-pressed="true">Rapidita</button>
+            <button type="button" data-size="m" aria-pressed="false">Mediana</button>
+            <button type="button" data-size="l" aria-pressed="false">Grande</button>
+          </div>
+          <label class="toggle"><input type="checkbox" id="add-today"> Para hoy</label>
+          <button class="btn primary small" type="submit" style="margin-left:auto">Agregar</button>
+        </div>
+      </form>
+
+      <div class="tabs" role="tablist" id="tabs">
+        <button role="tab" data-tab="today" aria-selected="true">Hoy <span class="count num" id="c-today">0</span></button>
+        <button role="tab" data-tab="all" aria-selected="false">Todo <span class="count num" id="c-all">0</span></button>
+        <button role="tab" data-tab="done" aria-selected="false">Hechas <span class="count num" id="c-done">0</span></button>
+      </div>
+      <div id="list"></div>
+    </main>
+
+    <aside class="side">
+      <section class="panel dump" id="dump">
+        <h2>Vaciar la cabeza</h2>
+        <p>Escribe todo lo que te ronda, sin ordenar. Una cosa por línea. Aquí ya no se te olvida.</p>
+        <textarea id="dump-text" placeholder="llamar al médico&#10;pagar la luz&#10;terminar informe para el viernes&#10;regalo cumple de Ana&#10;ordenar el armario"></textarea>
+        <div class="row">
+          <button class="btn primary small" id="dump-add" type="button">Agregar todo</button>
+          <button class="btn small" id="dump-ai" type="button" hidden>Ordenar con Claude</button>
+        </div>
+        <span class="claude-note" id="dump-note" hidden>Claude le pone categoría, tamaño y marca lo urgente para hoy.</span>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Premios</h2>
+          <div class="wallet"><b class="num" id="wallet">0</b><span>puntos para gastar</span></div>
+        </div>
+        <div class="list" id="rewards"></div>
+        <form class="reward-add" id="reward-form" autocomplete="off">
+          <input type="text" id="reward-text" placeholder="Un premio para ti…" aria-label="Premio" maxlength="80">
+          <input type="number" id="reward-cost" placeholder="pts" aria-label="Coste en puntos" min="5" step="5" value="100">
+          <button class="btn small" type="submit">Añadir</button>
+        </form>
+        <div class="chips" id="reward-ideas"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Logros</h2><span class="eyebrow num" id="badge-count">0 / 0</span></div>
+        <div class="badges" id="badges"></div>
+      </section>
+
+      <div class="row" style="justify-content:flex-end">
+        <label class="toggle"><input type="checkbox" id="sound" checked> Sonidos</label>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<canvas id="fx" aria-hidden="true"></canvas>
+
+<script>
+(() => {
+  "use strict";
+
+  /* ================= constants ================= */
+  const CATS = {
+    casa: { label: "Casa", color: "var(--c-casa)" },
+    trabajo: { label: "Trabajo", color: "var(--c-trabajo)" },
+    personal: { label: "Personal", color: "var(--c-personal)" },
+    recados: { label: "Recados", color: "var(--c-recados)" },
+    salud: { label: "Salud", color: "var(--c-salud)" },
+    otros: { label: "Otros", color: "var(--c-otros)" },
+  };
+  const SIZES = {
+    s: { label: "Rapidita", pts: 10, seeds: "•" },
+    m: { label: "Mediana", pts: 25, seeds: "••" },
+    l: { label: "Grande", pts: 50, seeds: "•••" },
+  };
+  const LEVELS = [
+    [0, "Semilla"], [50, "Brote"], [150, "Plantín"], [300, "Flor"], [500, "Maceta llena"],
+    [800, "Arbusto"], [1200, "Árbol joven"], [1700, "Huerto"], [2400, "Jardín"], [3300, "Bosque"], [4500, "Selva mágica"],
+  ];
+  const CHEERS = [
+    "¡Una menos! Tu cabeza ya pesa un poquito menos.",
+    "Hecho. Eso ya no tiene que vivir en tu mente.",
+    "¡Bien ahí! Un paso chiquito sigue siendo un paso.",
+    "Mira tu jardín: una flor nueva gracias a ti.",
+    "Lo estás haciendo mejor de lo que crees.",
+    "Tachadito. Qué gusto, ¿no?",
+    "Poco a poco se llega lejos. Sigue así.",
+    "Tu yo del futuro te lo agradece.",
+    "¡Eso! Una victoria más para hoy.",
+    "Respira. Lo lograste.",
+    "Una cosa a la vez, y mira cuánto avanzas.",
+    "¡Imparable! (pero con pausas, que también cuentan).",
+  ];
+  const BIG_CHEERS = [
+    "¡Esa era grande! Date un aplauso de verdad.",
+    "Te sacaste un peso enorme de encima. ¡Enorme!",
+    "La tarea difícil, hecha. Hoy eres invencible.",
+  ];
+  const REWARD_IDEAS = [
+    ["Un café o té rico", 60], ["Un capítulo de mi serie", 80], ["Paseo sin prisa", 100],
+    ["Baño largo", 150], ["Pedir mi comida favorita", 300], ["Un capricho que tengo pendiente", 500],
+  ];
+  const BADGES = [
+    { id: "first", name: "Primer paso", desc: "Termina tu primera tarea", color: "--petal-1" },
+    { id: "dump", name: "Cabeza liviana", desc: "Vuelca 5 o más cosas de una vez", color: "--petal-3" },
+    { id: "big", name: "Valiente", desc: "Termina una tarea grande", color: "--petal-5" },
+    { id: "five", name: "Día productivo", desc: "5 tareas en un mismo día", color: "--petal-2" },
+    { id: "clear", name: "Día despejado", desc: "Vacía tu lista de hoy (mín. 3)", color: "--petal-4" },
+    { id: "combo", name: "En racha", desc: "3 tareas seguidas en menos de 20 min", color: "--petal-1" },
+    { id: "streak3", name: "Constancia", desc: "3 días seguidos avanzando", color: "--petal-3" },
+    { id: "streak7", name: "Semana en flor", desc: "7 días seguidos avanzando", color: "--petal-5" },
+    { id: "ten", name: "Diez flores", desc: "10 tareas terminadas", color: "--petal-2" },
+    { id: "fifty", name: "Jardinera experta", desc: "50 tareas terminadas", color: "--petal-4" },
+    { id: "reward", name: "Te lo ganaste", desc: "Canjea tu primer premio", color: "--petal-1" },
+    { id: "split", name: "Divide y vencerás", desc: "Divide una tarea en pasitos", color: "--petal-3" },
+  ];
+  const LS_KEY = "jardin-pendientes-v1";
+
+  /* ================= state ================= */
+  const blank = () => ({ tasks: [], rewards: [], earned: 0, spent: 0, days: {}, badges: {}, redeemed: [], lastDoneAt: 0, comboCount: 0, archived: [], cleared: 0 });
+  let state = blank();
+  let tab = "today";
+  let addSize = "s";
+  let justPlanted = null;
+  let spotlight = null;
+  let pendingRedeem = null;
+
+  const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+  const dayKey = (d = new Date()) => d.toLocaleDateString("sv-SE");
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  const $ = (id) => document.getElementById(id);
+
+  function normalize(s) {
+    const b = blank();
+    if (!s || typeof s !== "object") return b;
+    for (const k of Object.keys(b)) if (s[k] !== undefined && typeof s[k] === typeof b[k]) b[k] = s[k];
+    b.tasks = (Array.isArray(s.tasks) ? s.tasks : []).filter(t => t && typeof t.text === "string").map(t => ({
+      id: String(t.id || uid()), text: t.text.slice(0, 200), cat: CATS[t.cat] ? t.cat : "otros",
+      size: SIZES[t.size] ? t.size : "m", today: !!t.today, done: !!t.done, doneAt: t.doneAt || 0, createdAt: t.createdAt || Date.now(),
+    }));
+    b.rewards = (Array.isArray(s.rewards) ? s.rewards : []).filter(r => r && typeof r.text === "string")
+      .map(r => ({ id: String(r.id || uid()), text: r.text.slice(0, 80), cost: Math.max(5, Number(r.cost) || 50) }));
+    b.redeemed = Array.isArray(s.redeemed) ? s.redeemed.slice(-100) : [];
+    b.archived = (Array.isArray(s.archived) ? s.archived : []).filter(a => a && a.id).slice(-70);
+    return b;
+  }
+
+  /* ================= persistence ================= */
+  function loadLocal() { try { const r = localStorage.getItem(LS_KEY); return r ? normalize(JSON.parse(r)) : null; } catch { return null; } }
+  function saveLocal() { try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch {} }
+
+  let ref = null, saveTimer = null, writing = false, again = false, lastRev = null;
+  function persist() {
+    saveLocal();
+    if (!ref) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(flush, 500);
+  }
+  async function flush() {
+    if (!ref) return;
+    if (writing) { again = true; return; }
+    writing = true;
+    const rev = uid(); lastRev = rev;
+    try { await ref.set({ state: clone(state), rev, updatedAt: Date.now() }); setSync("live"); }
+    catch (e) { if (e && (e.code === "revoked" || e.code === "invalid_argument" || e.code === "not_granted")) { ref = null; setSync("local"); } }
+    writing = false;
+    if (again) { again = false; flush(); }
+  }
+  function setSync(s) {
+    const el = $("sync"); el.dataset.state = s;
+    el.textContent = s === "live" ? "Guardado en la nube" : "Guardado en este navegador";
+  }
+
+  async function connectDb() {
+    if (!window.claude || !window.claude.use) return;
+    let db = null;
+    try { db = await window.claude.use("db"); } catch { db = null; }
+    if (!db) return;
+    try { ref = db.doc("boards/main"); } catch { ref = null; return; }
+    let first = true;
+    ref.onSnapshot((snap) => {
+      if (snap.metadata && snap.metadata.hasPendingWrites) return;
+      if (!snap.exists) {
+        if (first && hasContent(state)) flush();
+        first = false; setSync("live"); return;
+      }
+      const d = snap.data() || {};
+      setSync("live");
+      if (d.rev && d.rev === lastRev) { first = false; return; }
+      state = normalize(clone(d.state));
+      first = false;
+      saveLocal(); render();
+    }, () => { ref = null; setSync("local"); });
+  }
+  const hasContent = (s) => s.tasks.length || s.rewards.length || s.earned;
+
+  async function connectSample() {
+    if (!window.claude || !window.claude.use) return null;
+    try { return await window.claude.use("sample"); } catch { return null; }
+  }
+  let sample = null;
+
+  /* ================= derived ================= */
+  function levelInfo(pts) {
+    let i = 0;
+    while (i + 1 < LEVELS.length && pts >= LEVELS[i + 1][0]) i++;
+    const cur = LEVELS[i], next = LEVELS[i + 1];
+    const pct = next ? ((pts - cur[0]) / (next[0] - cur[0])) * 100 : 100;
+    return { idx: i, name: cur[1], next, pct };
+  }
+  function streak() {
+    let n = 0; const d = new Date();
+    if (!state.days[dayKey(d)]) d.setDate(d.getDate() - 1);
+    while (state.days[dayKey(d)] > 0) { n++; d.setDate(d.getDate() - 1); }
+    return n;
+  }
+  const wallet = () => Math.max(0, state.earned - state.spent);
+  const doneTasks = () => state.tasks.filter(t => t.done);
+
+  /* ================= actions ================= */
+  function addTask(text, cat, size, today) {
+    text = text.trim(); if (!text) return null;
+    const t = { id: uid(), text: text.slice(0, 200), cat: CATS[cat] ? cat : "otros", size: SIZES[size] ? size : "m", today: !!today, done: false, doneAt: 0, createdAt: Date.now() };
+    state.tasks.push(t); return t;
+  }
+
+  function complete(t, originEl) {
+    if (t.done) return;
+    const now = Date.now();
+    t.done = true; t.doneAt = now;
+    let pts = SIZES[t.size].pts;
+    let bonus = 0;
+    if (now - state.lastDoneAt < 20 * 60 * 1000) { state.comboCount++; } else { state.comboCount = 1; }
+    if (state.comboCount >= 2) bonus = 5 * Math.min(state.comboCount - 1, 4);
+    if (t.today) bonus += 5;
+    state.lastDoneAt = now;
+    t.earned = pts + bonus;
+    const beforeLvl = levelInfo(state.earned).idx;
+    state.earned += t.earned;
+    const k = dayKey(); state.days[k] = (state.days[k] || 0) + 1;
+    justPlanted = t.id;
+
+    const msg = t.size === "l" ? pick(BIG_CHEERS) : pick(CHEERS);
+    const extra = state.comboCount >= 2 ? ` · combo x${state.comboCount}` : "";
+    toast(msg, `+${t.earned}${extra}`);
+    burst(originEl, t.size === "l" ? 90 : 45);
+    chime(t.size === "l" ? 3 : 2);
+
+    checkBadges(t);
+    const afterLvl = levelInfo(state.earned).idx;
+    persist(); render();
+    if (afterLvl > beforeLvl) setTimeout(() => levelUp(LEVELS[afterLvl][1]), 500);
+  }
+
+  function uncomplete(t) {
+    if (!t.done) return;
+    state.earned = Math.max(0, state.earned - (t.earned || SIZES[t.size].pts));
+    const k = dayKey(new Date(t.doneAt));
+    if (state.days[k]) state.days[k]--;
+    t.done = false; t.doneAt = 0; t.earned = 0;
+    persist(); render();
+  }
+
+  function remove(t) {
+    const idx = state.tasks.indexOf(t);
+    if (idx < 0) return;
+    state.tasks.splice(idx, 1);
+    persist(); render();
+    toast("Tarea borrada.", "", { label: "Deshacer", fn: () => { state.tasks.splice(Math.min(idx, state.tasks.length), 0, t); persist(); render(); } });
+  }
+
+  function unlock(id) {
+    if (state.badges[id]) return false;
+    state.badges[id] = Date.now();
+    const b = BADGES.find(x => x.id === id);
+    setTimeout(() => { toast(`Logro desbloqueado: ${b.name}`, "★", null, "badge-toast"); chime(4); }, 700);
+    return true;
+  }
+
+  function checkBadges(t) {
+    const done = state.cleared + doneTasks().length;
+    if (done >= 1) unlock("first");
+    if (done >= 10) unlock("ten");
+    if (done >= 50) unlock("fifty");
+    if (t && t.size === "l") unlock("big");
+    if ((state.days[dayKey()] || 0) >= 5) unlock("five");
+    if (state.comboCount >= 3) unlock("combo");
+    const s = streak();
+    if (s >= 3) unlock("streak3");
+    if (s >= 7) unlock("streak7");
+    const todayAll = state.tasks.filter(x => x.today);
+    if (todayAll.length >= 3 && todayAll.every(x => x.done)) unlock("clear");
+  }
+
+  function redeem(r) {
+    if (wallet() < r.cost) return;
+    state.spent += r.cost;
+    state.redeemed.push({ text: r.text, cost: r.cost, at: Date.now() });
+    unlock("reward");
+    persist(); render();
+    celebrate(`¡Disfruta: ${r.text}!`, "Te lo ganaste tarea a tarea. Descansar también es parte del plan.");
+    burst(null, 120); chime(5);
+  }
+
+  /* ================= rendering ================= */
+  function el(tag, attrs = {}, ...kids) {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === "class") e.className = v;
+      else if (k === "text") e.textContent = v;
+      else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+      else if (v !== false && v != null) e.setAttribute(k, v === true ? "" : v);
+    }
+    for (const kid of kids) if (kid != null) e.append(kid);
+    return e;
+  }
+  const ICONS = {
+    star: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>',
+    trash: '<path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 12.5h9l1-12.5"/>',
+    split: '<path d="M5 5h6M5 12h9M5 19h14"/><circle cx="16" cy="5" r="1.4"/>',
+    check: '<path d="M5 12.5l4.5 4.5L19 7.5" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+  };
+  function svgIcon(name) { const s = document.createElementNS("http://www.w3.org/2000/svg", "svg"); s.setAttribute("viewBox", "0 0 24 24"); s.innerHTML = ICONS[name]; return s; }
+
+  function taskRow(t) {
+    const li = el("li", { class: "task" + (t.done ? " done" : "") + (spotlight === t.id ? " spot" : ""), "data-id": t.id });
+    const chk = el("button", { class: "check", type: "button", "aria-label": t.done ? "Marcar como pendiente" : "Marcar como hecha", "aria-pressed": t.done ? "true" : "false" });
+    chk.append(svgIcon("check"));
+    chk.addEventListener("click", () => t.done ? uncomplete(t) : complete(t, chk));
+    const c = CATS[t.cat];
+    const meta = el("div", { class: "meta" },
+      el("span", { class: "cat" }, el("i", { class: "dot", style: `background:${c.color}` }), c.label),
+      el("span", { title: SIZES[t.size].label }, el("span", { class: "seeds", text: SIZES[t.size].seeds }), " " + SIZES[t.size].label),
+      el("span", { class: "pts num", text: t.done ? `+${t.earned || SIZES[t.size].pts} pts` : `${SIZES[t.size].pts} pts` }),
+    );
+    const body = el("div", { class: "tbody" }, el("div", { class: "ttext", text: t.text }), meta);
+    const acts = el("div", { class: "tactions" });
+    if (!t.done) {
+      const star = el("button", { class: "icon" + (t.today ? " on" : ""), type: "button", "aria-label": t.today ? "Quitar de hoy" : "Para hoy", title: t.today ? "Quitar de hoy" : "Para hoy (+5 pts)" });
+      star.append(svgIcon("star"));
+      star.addEventListener("click", () => { t.today = !t.today; persist(); render(); });
+      acts.append(star);
+      if (sample && t.size !== "s") {
+        const sp = el("button", { class: "icon", type: "button", "aria-label": "Dividir en pasitos con Claude", title: "Dividir en pasitos (Claude)" });
+        sp.append(svgIcon("split"));
+        sp.addEventListener("click", () => splitTask(t, li));
+        acts.append(sp);
+      }
+    }
+    const del = el("button", { class: "icon", type: "button", "aria-label": "Borrar", title: "Borrar" });
+    del.append(svgIcon("trash"));
+    del.addEventListener("click", () => remove(t));
+    acts.append(del);
+    li.append(chk, body, acts);
+    return li;
+  }
+
+  function renderList() {
+    const root = $("list"); root.replaceChildren();
+    const pending = state.tasks.filter(t => !t.done);
+    const today = pending.filter(t => t.today);
+    const done = doneTasks().sort((a, b) => b.doneAt - a.doneAt);
+    $("c-today").textContent = today.length;
+    $("c-all").textContent = pending.length;
+    $("c-done").textContent = done.length;
+
+    if (!state.tasks.length) {
+      root.append(el("div", { class: "empty" }, el("strong", { text: "Tu lista está vacía (y eso está bien)." }),
+        el("span", { text: "Usa «Vaciar la cabeza» para soltar todo de golpe, o escribe una tarea arriba." })));
+      const ex = el("ul", { class: "list examples", "aria-label": "Ejemplo" });
+      ex.append(el("li", { class: "tag", text: "Así se verá · ejemplo" }));
+      [["Llamar para pedir turno médico", "salud", "s"], ["Terminar la presentación", "trabajo", "l"], ["Comprar regalo de cumpleaños", "recados", "m"]]
+        .forEach(([text, cat, size]) => { const r = taskRow({ id: "ex", text, cat, size, today: false, done: false }); r.querySelectorAll("button").forEach(b => b.disabled = true); ex.append(r); });
+      root.append(ex);
+      return;
+    }
+
+    if (tab === "today") {
+      if (!today.length) {
+        root.append(el("div", { class: "empty" },
+          el("strong", { text: pending.length ? "Aún no elegiste nada para hoy." : "¡No te queda nada pendiente!" }),
+          el("span", { text: pending.length ? "Marca con la estrella 2 o 3 cosas para hoy. Mejor pocas y hechas que muchas y pesadas." : "Disfruta tu jardín. Te lo ganaste." })));
+        if (pending.length) {
+          const g = el("ul", { class: "list" });
+          [...pending].sort((a, b) => sizeRank(a) - sizeRank(b)).slice(0, 4).forEach(t => g.append(taskRow(t)));
+          root.append(el("div", { class: "group-title", text: "Sugerencias rápidas para empezar" }), g);
+        }
+      } else {
+        const g = el("ul", { class: "list" });
+        today.sort((a, b) => sizeRank(a) - sizeRank(b)).forEach(t => g.append(taskRow(t)));
+        const doneToday = done.filter(t => t.today && dayKey(new Date(t.doneAt)) === dayKey());
+        root.append(g);
+        if (doneToday.length) {
+          const g2 = el("ul", { class: "list" }); doneToday.forEach(t => g2.append(taskRow(t)));
+          root.append(el("div", { class: "group-title", text: `Ya hechas hoy · ${doneToday.length}` }), g2);
+        }
+      }
+    } else if (tab === "all") {
+      if (!pending.length) root.append(el("div", { class: "empty" }, el("strong", { text: "¡Todo hecho!" }), el("span", { text: "No queda nada pendiente. Qué alivio." })));
+      for (const [key, c] of Object.entries(CATS)) {
+        const items = pending.filter(t => t.cat === key);
+        if (!items.length) continue;
+        const g = el("ul", { class: "list" }); items.forEach(t => g.append(taskRow(t)));
+        root.append(el("div", { class: "group" },
+          el("div", { class: "group-title" }, el("i", { class: "dot", style: `background:${c.color}` }), `${c.label} · ${items.length}`), g));
+      }
+    } else {
+      if (!done.length) root.append(el("div", { class: "empty" }, el("strong", { text: "Aquí verás todo lo que ya lograste." }), el("span", { text: "Tu primera tarea terminada está a un clic." })));
+      const g = el("ul", { class: "list" }); done.slice(0, 80).forEach(t => g.append(taskRow(t)));
+      root.append(g);
+      if (done.length) {
+        root.append(el("div", { class: "row" }, el("button", { class: "btn small", type: "button", text: "Limpiar las hechas de la lista (las flores se quedan)", onclick: () => {
+          const gone = doneTasks(); state.cleared += gone.length; state.archived = state.archived.concat(gone.map(t => ({ id: t.id, size: t.size, doneAt: t.doneAt }))).slice(-70); state.tasks = state.tasks.filter(t => !t.done); persist(); render();
+        } })));
+      }
+    }
+  }
+  const sizeRank = (t) => ({ s: 0, m: 1, l: 2 })[t.size];
+
+  function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+
+  function renderGarden() {
+    const svg = $("garden");
+    const list = state.archived.concat(doneTasks()).sort((a, b) => a.doneAt - b.doneAt);
+    const total = state.cleared + doneTasks().length;
+    const shown = list.slice(-70);
+    let out = `<rect class="soil" x="0" y="148" width="800" height="22"/><path class="soil2" d="M0 152 Q 100 146 200 152 T 400 152 T 600 152 T 800 152 V170 H0Z"/>`;
+    if (!shown.length) {
+      for (let i = 0; i < 9; i++) { const x = 60 + i * 85; out += `<ellipse class="sprout" cx="${x}" cy="147" rx="5" ry="2.5"/>`; }
+      out += `<text class="emptytxt" x="400" y="80" text-anchor="middle">Cada tarea terminada planta una flor aquí</text>`;
+    }
+    shown.forEach((t, i) => {
+      const h = hash(t.id);
+      const n = shown.length;
+      const slot = n <= 1 ? 400 : 30 + (i / (n - 1)) * 740;
+      const x = Math.round(Math.max(18, Math.min(782, slot + ((h % 30) - 15))));
+      const height = { s: 34, m: 56, l: 82 }[t.size] + (h % 14);
+      const sway = ((h >> 3) % 17) - 8;
+      const top = 148 - height, tx = x + sway;
+      const pc = "p" + (1 + (h % 5));
+      const r = { s: 5, m: 7, l: 9 }[t.size];
+      const petals = t.size === "l" ? 8 : 5 + ((h >> 5) % 2);
+      let head = "";
+      for (let p = 0; p < petals; p++) {
+        const a = (p / petals) * Math.PI * 2 + (h % 10) / 10;
+        head += `<circle class="${pc}" cx="${(tx + Math.cos(a) * r * 1.05).toFixed(1)}" cy="${(top + Math.sin(a) * r * 1.05).toFixed(1)}" r="${r * .78}"/>`;
+      }
+      head += `<circle class="ctr" cx="${tx}" cy="${top}" r="${r * .62}"/>`;
+      const lx = x + sway * .4, ly = 148 - height * .45, side = (h & 1) ? 1 : -1;
+      const leaf = `<ellipse class="leafshape" cx="${lx + side * 7}" cy="${ly}" rx="7" ry="3" transform="rotate(${side * -30} ${lx + side * 7} ${ly})"/>`;
+      const cls = t.id === justPlanted ? "new" : "";
+      out += `<g class="${cls}"><path class="stem" d="M${x} 149 Q ${x + sway * .2} ${148 - height / 2} ${tx} ${top}"/>${leaf}${head}</g>`;
+    });
+    svg.innerHTML = out;
+    $("st-flowers").textContent = total;
+    justPlanted = null;
+  }
+
+  function renderStats() {
+    const L = levelInfo(state.earned);
+    $("lvl-name").textContent = L.name;
+    $("lvl-bar").style.width = Math.min(100, L.pct).toFixed(1) + "%";
+    $("lvl-next").textContent = L.next ? `${state.earned} / ${L.next[0]} pts → ${L.next[1]}` : `${state.earned} pts · nivel máximo`;
+    $("st-today").textContent = state.days[dayKey()] || 0;
+    $("st-streak").textContent = streak();
+    $("wallet").textContent = wallet();
+    const pending = state.tasks.filter(t => !t.done).length;
+    const doneToday = state.days[dayKey()] || 0;
+    let lede;
+    if (!state.tasks.length) lede = "Cada tarea que terminas planta una flor. Saca las cosas de tu cabeza, elige una pequeña y empieza por ahí.";
+    else if (!pending) lede = "No queda nada pendiente. Tu cabeza puede descansar. De verdad.";
+    else if (doneToday === 0) lede = `Tienes ${pending} ${pending === 1 ? "cosa anotada" : "cosas anotadas"}. Ya no tienen que vivir en tu cabeza. Empieza por una rapidita.`;
+    else lede = `Llevas ${doneToday} hoy y te ${pending === 1 ? "queda 1" : `quedan ${pending}`}. No hace falta hacerlo todo hoy: lo que hagas, suma.`;
+    $("lede").textContent = lede;
+  }
+
+  function renderRewards() {
+    const root = $("rewards"); root.replaceChildren();
+    const w = wallet();
+    if (!state.rewards.length) root.append(el("div", { class: "empty", style: "padding:8px" }, el("span", { text: "Añade premios que de verdad te apetezcan. Los canjeas con los puntos de tus tareas." })));
+    state.rewards.slice().sort((a, b) => a.cost - b.cost).forEach(r => {
+      const can = w >= r.cost;
+      const info = el("div", {}, el("div", { class: "rt", text: r.text }),
+        el("div", { class: "rc num", text: can ? `${r.cost} pts · ¡ya puedes!` : `${r.cost} pts · te faltan ${r.cost - w}` }),
+        el("div", { class: "mini" }, el("i", { style: `width:${Math.min(100, (w / r.cost) * 100)}%` })));
+      const actions = el("div", { class: "row", style: "gap:4px;flex-wrap:nowrap" });
+      if (pendingRedeem === r.id) {
+        actions.append(
+          el("button", { class: "btn sun small", type: "button", text: "Sí, canjear", onclick: () => { pendingRedeem = null; redeem(r); } }),
+          el("button", { class: "btn small", type: "button", text: "No", onclick: () => { pendingRedeem = null; renderRewards(); } }));
+      } else {
+        actions.append(el("button", { class: "btn small" + (can ? " sun" : ""), type: "button", disabled: !can, text: "Canjear", onclick: () => { pendingRedeem = r.id; renderRewards(); } }));
+        const del = el("button", { class: "icon", type: "button", "aria-label": "Quitar premio", title: "Quitar premio" });
+        del.append(svgIcon("trash"));
+        del.addEventListener("click", () => { state.rewards = state.rewards.filter(x => x !== r); persist(); render(); });
+        actions.append(del);
+      }
+      root.append(el("div", { class: "reward" }, info, actions));
+    });
+    const ideas = $("reward-ideas"); ideas.replaceChildren();
+    REWARD_IDEAS.filter(([t]) => !state.rewards.some(r => r.text === t)).slice(0, 4).forEach(([t, c]) => {
+      ideas.append(el("button", { class: "chip", type: "button", text: `+ ${t} · ${c}`, onclick: () => { state.rewards.push({ id: uid(), text: t, cost: c }); persist(); render(); } }));
+    });
+  }
+
+  function renderBadges() {
+    const root = $("badges"); root.replaceChildren();
+    let n = 0;
+    BADGES.forEach(b => {
+      const got = !!state.badges[b.id]; if (got) n++;
+      const s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      s.setAttribute("viewBox", "0 0 40 40");
+      let petals = "";
+      for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; petals += `<circle cx="${20 + Math.cos(a) * 9}" cy="${20 + Math.sin(a) * 9}" r="7" fill="var(${b.color})"/>`; }
+      s.innerHTML = petals + `<circle cx="20" cy="20" r="6.5" fill="var(--marigold)" stroke="var(--surface)" stroke-width="1.5"/>`;
+      root.append(el("div", { class: "badge" + (got ? "" : " locked"), title: b.desc }, s, el("b", { text: b.name }), el("span", { text: b.desc })));
+    });
+    $("badge-count").textContent = `${n} / ${BADGES.length}`;
+  }
+
+  function render() {
+    renderGarden(); renderStats(); renderList(); renderRewards(); renderBadges();
+    document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab ? "true" : "false"));
+  }
+
+  /* ================= feedback ================= */
+  function toast(msg, pts, action, extraClass) {
+    const t = el("div", { class: "toast" + (extraClass ? " " + extraClass : "") }, el("span", { text: msg }));
+    const right = el("div", { class: "row", style: "flex-wrap:nowrap" });
+    if (pts) right.append(el("span", { class: "tp num", text: pts }));
+    if (action) right.append(el("button", { type: "button", text: action.label, onclick: () => { action.fn(); t.remove(); } }));
+    t.append(right);
+    const box = $("toasts"); box.append(t);
+    while (box.children.length > 3) box.firstChild.remove();
+    setTimeout(() => t.remove(), action ? 6000 : 3800);
+  }
+  function celebrate(title, text) {
+    const o = el("div", { class: "overlay", onclick: (e) => { if (e.target === o) o.remove(); } },
+      el("div", { class: "card", role: "dialog", "aria-modal": "true" },
+        el("div", { class: "eyebrow", text: "¡Felicidades!" }), el("h3", { text: title }), el("p", { text: text }),
+        el("button", { class: "btn primary", type: "button", style: "justify-self:center", text: "Seguir", onclick: () => o.remove() })));
+    document.body.append(o);
+    o.querySelector("button").focus();
+  }
+  function levelUp(name) {
+    celebrate(`Nivel ${name}`, "Tu jardín crece y tú también. Mira todo lo que ya sacaste de tu cabeza.");
+    burst(null, 160); chime(6);
+  }
+
+  // petal confetti
+  const fx = $("fx"), ctx = fx.getContext("2d");
+  let parts = [], raf = 0;
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function burst(origin, n) {
+    if (reduced) return;
+    const dpr = window.devicePixelRatio || 1;
+    fx.width = innerWidth * dpr; fx.height = innerHeight * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    let x = innerWidth / 2, y = innerHeight / 3;
+    if (origin) { const r = origin.getBoundingClientRect(); x = r.left + r.width / 2; y = r.top + r.height / 2; }
+    const cs = getComputedStyle(document.documentElement);
+    const cols = ["--petal-1", "--petal-2", "--petal-3", "--petal-4", "--petal-5", "--leaf"].map(v => cs.getPropertyValue(v).trim());
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 2 + Math.random() * (origin ? 6 : 9);
+      parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 3, r: 3 + Math.random() * 4, rot: Math.random() * 6, vr: (Math.random() - .5) * .3, c: pick(cols), life: 70 + Math.random() * 40 });
+    }
+    if (!raf) raf = requestAnimationFrame(tick);
+  }
+  function tick() {
+    ctx.clearRect(0, 0, innerWidth, innerHeight);
+    parts = parts.filter(p => p.life > 0);
+    for (const p of parts) {
+      p.vy += .18; p.vx *= .985; p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.life--;
+      ctx.save(); ctx.globalAlpha = Math.min(1, p.life / 30); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      ctx.fillStyle = p.c; ctx.beginPath(); ctx.ellipse(0, 0, p.r, p.r * .55, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    }
+    raf = parts.length ? requestAnimationFrame(tick) : 0;
+    if (!raf) ctx.clearRect(0, 0, innerWidth, innerHeight);
+  }
+
+  // little chime (only after interaction)
+  let actx = null;
+  function chime(steps) {
+    if (!$("sound").checked) return;
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568];
+      for (let i = 0; i < Math.min(steps, notes.length); i++) {
+        const o = actx.createOscillator(), g = actx.createGain(), t0 = actx.currentTime + i * .08;
+        o.type = "sine"; o.frequency.value = notes[i];
+        g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(.12, t0 + .01); g.gain.exponentialRampToValueAtTime(.001, t0 + .35);
+        o.connect(g).connect(actx.destination); o.start(t0); o.stop(t0 + .4);
+      }
+    } catch {}
+  }
+
+  /* ================= Claude helpers ================= */
+  async function organizeWithClaude(text) {
+    const prompt = `Ayudas a una persona agobiada a ordenar sus pendientes. Convierte este volcado de ideas en tareas concretas y accionables, en español (tú).
+Reglas:
+- Una acción por tarea, empieza con un verbo, máximo 70 caracteres.
+- No inventes tareas nuevas. Divide una línea solo si contiene claramente varias cosas distintas.
+- "cat": una de casa, trabajo, personal, recados, salud, otros.
+- "size": "s" (menos de 15 min), "m" (15-60 min), "l" (más de 1 hora).
+- "today": true solo si suena urgente o tiene fecha muy próxima; como mucho 3 en true.
+Responde SOLO con JSON: {"tasks":[{"text":"...","cat":"...","size":"s","today":false}]}
+
+Volcado:
+${text}`;
+    const res = await sample.json(prompt, { modelTier: "quick" });
+    const list = res && Array.isArray(res.tasks) ? res.tasks : [];
+    return list.filter(x => x && typeof x.text === "string" && x.text.trim()).slice(0, 60);
+  }
+
+  async function splitTask(t, li) {
+    if (!sample) return;
+    li.classList.add("busy");
+    toast("Claude está dividiendo la tarea en pasitos…", "");
+    try {
+      const res = await sample.json(`Una persona agobiada tiene esta tarea pendiente: "${t.text}" (categoría: ${CATS[t.cat].label}).
+Divídela en 3 a 6 pasitos pequeños, concretos y en orden, cada uno de menos de 20 minutos. El primero debe ser muy fácil para arrancar. En español (tú), empezando con verbo, máximo 60 caracteres cada uno.
+Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
+      const steps = (res && Array.isArray(res.steps) ? res.steps : []).filter(s => typeof s === "string" && s.trim()).slice(0, 6);
+      if (!steps.length) throw new Error("vacío");
+      const idx = state.tasks.indexOf(t);
+      const created = steps.map(s => ({ id: uid(), text: s.trim().slice(0, 200), cat: t.cat, size: "s", today: t.today, done: false, doneAt: 0, createdAt: Date.now() }));
+      state.tasks.splice(idx, 1, ...created);
+      unlock("split");
+      persist(); render();
+      toast(`Dividida en ${created.length} pasitos. Ahora se ve más fácil, ¿no?`, "");
+    } catch (e) {
+      li.classList.remove("busy");
+      toast(e && e.code === "rate_limited" ? "Claude está ocupado. Prueba en un rato." : "No se pudo dividir ahora. Inténtalo otra vez más tarde.", "");
+    }
+  }
+
+  /* ================= events ================= */
+  const catSel = $("add-cat");
+  for (const [k, c] of Object.entries(CATS)) catSel.append(el("option", { value: k, text: c.label }));
+  catSel.value = "personal";
+
+  $("add-size").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-size]"); if (!b) return;
+    addSize = b.dataset.size;
+    $("add-size").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
+  });
+  $("add-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const inp = $("add-text");
+    const t = addTask(inp.value, catSel.value, addSize, $("add-today").checked);
+    if (!t) return;
+    inp.value = "";
+    if (t.today && tab !== "today") tab = "today";
+    if (!t.today && tab === "today" && state.tasks.filter(x => x.today && !x.done).length) tab = "all";
+    persist(); render();
+  });
+
+  $("tabs").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-tab]"); if (!b) return;
+    tab = b.dataset.tab; spotlight = null; render();
+  });
+
+  $("dump-add").addEventListener("click", () => {
+    const lines = $("dump-text").value.split(/\n+/).map(s => s.replace(/^[\s\-*•·\d.)]+/, "").trim()).filter(Boolean);
+    if (!lines.length) { toast("Escribe al menos una cosa, una por línea.", ""); return; }
+    lines.forEach(l => addTask(l, catSel.value, "m", false));
+    $("dump-text").value = "";
+    if (lines.length >= 5) unlock("dump");
+    tab = "all";
+    persist(); render();
+    toast(`${lines.length} ${lines.length === 1 ? "cosa fuera" : "cosas fuera"} de tu cabeza. Respira.`, "");
+    chime(2);
+  });
+
+  $("dump-ai").addEventListener("click", async () => {
+    const text = $("dump-text").value.trim();
+    if (!text) { toast("Escribe primero lo que tienes en la cabeza.", ""); return; }
+    const panel = $("dump"); panel.classList.add("busy");
+    $("dump-ai").textContent = "Ordenando…";
+    try {
+      const list = await organizeWithClaude(text);
+      if (!list.length) throw new Error("vacío");
+      list.forEach(x => addTask(x.text, x.cat, x.size, x.today));
+      $("dump-text").value = "";
+      if (list.length >= 5) unlock("dump");
+      tab = list.some(x => x.today) ? "today" : "all";
+      persist(); render();
+      toast(`Ordenado: ${list.length} tareas con categoría y tamaño. Ya está todo afuera.`, "");
+      chime(3);
+    } catch (e) {
+      toast(e && e.code === "rate_limited" ? "Claude está ocupado. Usa «Agregar todo» o prueba en un rato." : "No se pudo ordenar ahora. Usa «Agregar todo» y ordénalas a mano.", "");
+    } finally {
+      panel.classList.remove("busy");
+      $("dump-ai").textContent = "Ordenar con Claude";
+    }
+  });
+
+  $("where-start").addEventListener("click", () => {
+    const pending = state.tasks.filter(t => !t.done);
+    if (!pending.length) { toast(state.tasks.length ? "¡No queda nada! Descansa." : "Primero vacía tu cabeza: escribe todo en el panel de la derecha.", ""); return; }
+    const pool = pending.filter(t => t.today);
+    const src = pool.length ? pool : pending;
+    const min = Math.min(...src.map(sizeRank));
+    const choice = pick(src.filter(t => sizeRank(t) === min));
+    spotlight = choice.id;
+    tab = choice.today ? "today" : "all";
+    render();
+    const row = document.querySelector(`.task[data-id="${choice.id}"]`);
+    if (row) row.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+    toast(`Empieza por esta: «${choice.text}». Solo esta. Lo demás puede esperar.`, "");
+  });
+
+  $("reward-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = $("reward-text").value.trim(); if (!text) return;
+    const cost = Math.max(5, Math.round(Number($("reward-cost").value) || 100));
+    state.rewards.push({ id: uid(), text: text.slice(0, 80), cost });
+    $("reward-text").value = "";
+    persist(); render();
+  });
+
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") document.querySelectorAll(".overlay").forEach(o => o.remove()); });
+
+  /* ================= boot ================= */
+  $("today-label").textContent = new Date().toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long" });
+  state = loadLocal() || blank();
+  render();
+  connectDb();
+  connectSample().then(s => {
+    sample = s;
+    if (sample) { $("dump-ai").hidden = false; $("dump-note").hidden = false; render(); }
+  });
+})();
+</script>
