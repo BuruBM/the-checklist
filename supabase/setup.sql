@@ -10,6 +10,9 @@ create table if not exists public.boards (
 
 alter table public.boards enable row level security;
 
+-- Acceso para usuarios con sesión (necesario si "Automatically expose new tables" está desactivado).
+grant select, insert, update on public.boards to authenticated;
+
 drop policy if exists "boards: ver el propio" on public.boards;
 drop policy if exists "boards: crear el propio" on public.boards;
 drop policy if exists "boards: editar el propio" on public.boards;
