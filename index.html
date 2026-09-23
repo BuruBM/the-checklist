@@ -1,4 +1,19 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Jardín de pendientes</title>
+<meta name="description" content="Checklist gamificado: vacía tu cabeza y haz crecer un jardín con cada tarea terminada.">
+<meta name="theme-color" content="#F1F4EC" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121813" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Jardín">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
@@ -71,7 +86,8 @@
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 22px rgba(0,0,0,.28);
 }
 
-* { box-sizing: border-box; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); background: var(--ground); -webkit-text-size-adjust: 100%; }
 [hidden] { display: none !important; }
 body {
   background: var(--ground);
@@ -81,6 +97,13 @@ body {
   line-height: 1.5;
   padding-inline: 16px;
   padding-block: 20px 80px;
+  margin: 0;
+  overscroll-behavior-y: none;
+}
+@media (max-width: 600px) {
+  body { padding-block: 14px 90px; }
+  input, select, textarea { font-size: 16px !important; } /* evita el zoom automático en iPhone */
+  .top .lede { font-size: 14px; }
 }
 .wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 20px; }
 h1, h2, h3 { font-family: var(--display); margin: 0; text-wrap: balance; }
@@ -251,6 +274,9 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
 .card h3 { font-size: 28px; font-weight: 800; }
 .card p { margin: 0; color: var(--ink-soft); }
 #fx { position: fixed; inset: 0; pointer-events: none; z-index: 70; width: 100%; height: 100%; }
+.data-status { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.data-status::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--leaf); flex: none; }
+.data-note { margin: 0; font-size: 13px; color: var(--ink-soft); }
 .claude-note { font-size: 12px; color: var(--ink-soft); }
 .busy { opacity: .6; pointer-events: none; }
 
@@ -258,11 +284,14 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 @media (max-width: 520px) {
-  .task { grid-template-columns: auto minmax(0,1fr); }
-  .tactions { grid-column: 2; justify-content: flex-start; margin-left: -6px; }
+  .task { gap: 10px; padding: 9px 4px 9px 10px; }
+  .tactions { gap: 0; }
+  .icon { width: 30px; height: 34px; }
   .stats { gap: 10px 20px; }
 }
 </style>
+</head>
+<body>
 
 <div class="wrap">
   <header class="top">
@@ -347,9 +376,17 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
         <div class="badges" id="badges"></div>
       </section>
 
-      <div class="row" style="justify-content:flex-end">
+      <section class="panel" id="data-panel">
+        <h2>Tus datos</h2>
+        <div class="data-status" id="data-status">Todo se guarda solo en este teléfono</div>
+        <p class="data-note" id="backup-note">Haz una copia de vez en cuando por si cambias de teléfono o borras el navegador.</p>
+        <div class="row">
+          <button class="btn small" id="backup-save" type="button">Guardar copia</button>
+          <button class="btn small" id="backup-load" type="button">Restaurar copia</button>
+          <input type="file" id="backup-file" accept="application/json,.json" hidden>
+        </div>
         <label class="toggle"><input type="checkbox" id="sound" checked> Sonidos</label>
-      </div>
+      </section>
     </aside>
   </div>
 </div>
@@ -419,7 +456,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
   const LS_KEY = "jardin-pendientes-v1";
 
   /* ================= state ================= */
-  const blank = () => ({ tasks: [], rewards: [], earned: 0, spent: 0, days: {}, badges: {}, redeemed: [], lastDoneAt: 0, comboCount: 0, archived: [], cleared: 0 });
+  const blank = () => ({ tasks: [], rewards: [], earned: 0, spent: 0, days: {}, badges: {}, redeemed: [], lastDoneAt: 0, comboCount: 0, archived: [], cleared: 0, lastBackup: 0 });
   let state = blank();
   let tab = "today";
   let addSize = "s";
@@ -440,6 +477,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     b.tasks = (Array.isArray(s.tasks) ? s.tasks : []).filter(t => t && typeof t.text === "string").map(t => ({
       id: String(t.id || uid()), text: t.text.slice(0, 200), cat: CATS[t.cat] ? t.cat : "otros",
       size: SIZES[t.size] ? t.size : "m", today: !!t.today, done: !!t.done, doneAt: t.doneAt || 0, createdAt: t.createdAt || Date.now(),
+      earned: Number(t.earned) || 0,
     }));
     b.rewards = (Array.isArray(s.rewards) ? s.rewards : []).filter(r => r && typeof r.text === "string")
       .map(r => ({ id: String(r.id || uid()), text: r.text.slice(0, 80), cost: Math.max(5, Number(r.cost) || 50) }));
@@ -669,7 +707,10 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
 
     if (!state.tasks.length) {
       root.append(el("div", { class: "empty" }, el("strong", { text: "Tu lista está vacía (y eso está bien)." }),
-        el("span", { text: "Usa «Vaciar la cabeza» para soltar todo de golpe, o escribe una tarea arriba." })));
+        el("span", { text: "Usa «Vaciar la cabeza» para soltar todo de golpe, o escribe una tarea arriba." }),
+        el("button", { class: "btn primary small", type: "button", style: "justify-self:center", text: "Vaciar la cabeza", onclick: () => {
+          $("dump").scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" }); setTimeout(() => $("dump-text").focus(), 350);
+        } })));
       const ex = el("ul", { class: "list examples", "aria-label": "Ejemplo" });
       ex.append(el("li", { class: "tag", text: "Así se verá · ejemplo" }));
       [["Llamar para pedir turno médico", "salud", "s"], ["Terminar la presentación", "trabajo", "l"], ["Comprar regalo de cumpleaños", "recados", "m"]]
@@ -822,7 +863,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
   }
 
   function render() {
-    renderGarden(); renderStats(); renderList(); renderRewards(); renderBadges();
+    renderGarden(); renderStats(); renderList(); renderRewards(); renderBadges(); renderData();
     document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab ? "true" : "false"));
   }
 
@@ -1023,14 +1064,81 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
 
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") document.querySelectorAll(".overlay").forEach(o => o.remove()); });
 
+  /* ================= datos: guardado y copias ================= */
+  function renderData() {
+    const n = $("backup-note");
+    if (!n) return;
+    if (state.lastBackup) {
+      const days = Math.floor((Date.now() - state.lastBackup) / 86400000);
+      n.textContent = days === 0 ? "Última copia: hoy. Todo en orden." : `Última copia: hace ${days} ${days === 1 ? "día" : "días"}.` + (days >= 14 ? " Buen momento para hacer otra." : "");
+    }
+  }
+  async function saveBackup() {
+    state.lastBackup = Date.now();
+    persist(); renderData();
+    const json = JSON.stringify({ app: "jardin-pendientes", version: 1, savedAt: new Date().toISOString(), state }, null, 1);
+    const name = `jardin-copia-${dayKey()}.json`;
+    const file = new File([json], name, { type: "application/json" });
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: "Copia de Jardín de pendientes" });
+        toast("Copia lista. Guárdala en Archivos, Drive o mándatela por mail.", "");
+        return;
+      }
+    } catch (e) { if (e && e.name === "AbortError") return; }
+    try {
+      const url = URL.createObjectURL(file);
+      const a = el("a", { href: url, download: name });
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      toast("Copia descargada.", "");
+    } catch { toast("No se pudo guardar la copia en este dispositivo.", ""); }
+  }
+  $("backup-save").addEventListener("click", saveBackup);
+  $("backup-load").addEventListener("click", () => $("backup-file").click());
+  $("backup-file").addEventListener("change", async (e) => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!f) return;
+    try {
+      const data = JSON.parse(await f.text());
+      const incoming = normalize(data && data.state ? data.state : data);
+      const n = incoming.tasks.length;
+      toast(`La copia tiene ${n} ${n === 1 ? "tarea" : "tareas"} y ${incoming.earned} pts. Reemplaza lo que hay ahora.`, "", {
+        label: "Restaurar", fn: () => { state = incoming; persist(); render(); toast("Copia restaurada. Tu jardín está de vuelta.", ""); chime(3); },
+      });
+    } catch { toast("Ese archivo no es una copia del jardín.", ""); }
+  });
+
+  async function keepDataSafe() {
+    try {
+      if (navigator.storage && navigator.storage.persist) {
+        const already = await navigator.storage.persisted();
+        const ok = already || await navigator.storage.persist();
+        if (ok) $("data-status").textContent = "Todo se guarda solo en este teléfono (protegido)";
+      }
+    } catch {}
+  }
+  function registerSW() {
+    if (!("serviceWorker" in navigator) || !/^https?:$/.test(location.protocol)) return;
+    if (window.claude) return; // dentro de Claude no hace falta
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+
   /* ================= boot ================= */
   $("today-label").textContent = new Date().toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long" });
   state = loadLocal() || blank();
   render();
   connectDb();
+  keepDataSafe();
+  registerSW();
+  window.addEventListener("pagehide", saveLocal);
+  document.addEventListener("visibilitychange", () => { if (document.hidden) saveLocal(); });
   connectSample().then(s => {
     sample = s;
     if (sample) { $("dump-ai").hidden = false; $("dump-note").hidden = false; render(); }
   });
 })();
 </script>
+</body>
+</html>
