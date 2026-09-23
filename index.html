@@ -135,7 +135,7 @@ button { cursor: pointer; }
 .task.waiting .rep { width: 28px; text-align: center; }
 .sync { font-size: 12px; color: var(--ink-soft); display: inline-flex; align-items: center; gap: 6px; }
 .sync::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-soft); }
-.sync[data-state="live"]::before { background: var(--leaf); }
+.sync[data-state="live"]::before, .sync[data-state="ok"]::before { background: var(--leaf); }
 
 /* ---------- garden ---------- */
 .garden {
@@ -925,7 +925,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     if (left > 1) {
       const per = Math.ceil(pend / Math.max(1, left - 1));
       pill.append(`${title}: `, el("b", { class: "num", text: `faltan ${left} días` }),
-        el("span", { text: pend ? `${pend} pendientes · con ${per} por día llegas holgada` : "¡Ya tienes todo listo!" }));
+        el("span", { text: pend ? `${pend} por hacer · con ${per} por día llegas holgada` : "¡Ya tienes todo listo!" }));
     } else if (left === 1) {
       pill.append(`${title}: `, el("b", { text: "¡es mañana!" }), el("span", { text: pend ? `${pend} pendientes · lo que no llegue, puede esperar` : "Todo listo. A disfrutar." }));
     } else if (left === 0) {
@@ -954,13 +954,15 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     $("st-today").textContent = state.days[dayKey()] || 0;
     $("st-streak").textContent = streak();
     $("wallet").textContent = wallet();
-    const pending = state.tasks.filter(isPending).length;
+    const pending = state.tasks.filter(t => isPending(t) && !t.repeat).length;
+    const reps = state.tasks.filter(t => t.repeat).length;
+    const repsTxt = reps ? ` (y ${reps} ${reps === 1 ? "tarea que se repite" : "tareas que se repiten"})` : "";
     const doneToday = state.days[dayKey()] || 0;
     let lede;
     if (!state.tasks.length) lede = "Cada tarea que terminas planta una flor. Saca las cosas de tu cabeza, elige una pequeña y empieza por ahí.";
-    else if (!pending) lede = "No queda nada pendiente. Tu cabeza puede descansar. De verdad.";
-    else if (doneToday === 0) lede = `Tienes ${pending} ${pending === 1 ? "cosa anotada" : "cosas anotadas"}. Ya no tienen que vivir en tu cabeza. Empieza por una rapidita.`;
-    else lede = `Llevas ${doneToday} hoy y te ${pending === 1 ? "queda 1" : `quedan ${pending}`}. No hace falta hacerlo todo hoy: lo que hagas, suma.`;
+    else if (!pending) lede = "No queda nada pendiente" + (reps ? ", solo lo que se repite." : ".") + " Tu cabeza puede descansar. De verdad.";
+    else if (doneToday === 0) lede = `Tienes ${pending} ${pending === 1 ? "cosa por hacer" : "cosas por hacer"}${repsTxt}. Ya no tienen que vivir en tu cabeza. Empieza por una rapidita.`;
+    else lede = `Llevas ${doneToday} hoy y te ${pending === 1 ? "queda 1 cosa por hacer" : `quedan ${pending} cosas por hacer`}${repsTxt}. No hace falta hacerlo todo hoy: lo que hagas, suma.`;
     $("lede").textContent = lede;
   }
 
