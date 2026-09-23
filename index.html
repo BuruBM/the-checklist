@@ -105,7 +105,20 @@ body {
 @media (max-width: 600px) {
   body { padding-block: 14px 90px; }
   input, select, textarea { font-size: 16px !important; } /* evita el zoom automático en iPhone */
-  .top .lede { font-size: 14px; }
+  .top .lede { display: none; }
+  .top h1 { font-size: 26px; }
+  .top { gap: 4px 12px; align-items: center; position: relative; }
+  .top > div { width: 100%; }
+  .sync { position: absolute; top: -3px; right: 0; font-size: 11px; }
+  .eyebrow { font-size: 11px; }
+  .goal { margin-top: 8px; }
+  .goal-pill { font-size: 13px; padding: 6px 12px; }
+  .goal-pill b { font-size: 16px; }
+  .wrap { gap: 14px; }
+  .level { flex-basis: 100%; }
+  .panel { padding: 14px; gap: 12px; }
+  .panel h2 { font-size: 18px; }
+  .add-go { padding: 10px 14px; }
 }
 .wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 20px; }
 h1, h2, h3 { font-family: var(--display); margin: 0; text-wrap: balance; }
@@ -205,6 +218,22 @@ button { cursor: pointer; }
 .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
 select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; background: var(--ground); font-size: 13px; font-weight: 600; }
 .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+
+.add-row { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 6px; align-items: center; }
+.add-row input { padding: 10px 14px !important; }
+.opts-btn { width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 12px; background: var(--ground); }
+.opts-btn[aria-expanded="true"] { background: var(--surface-2); color: var(--ink); }
+.add-go { padding: 10px 16px; }
+.add-opts { padding: 4px 2px 2px; }
+.cats { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 4px; scrollbar-width: none; margin-top: -4px; }
+.cats::-webkit-scrollbar { display: none; }
+.catchip {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface);
+  border-radius: 99px; padding: 5px 11px; font-size: 13px; font-weight: 600; color: var(--ink-soft); white-space: nowrap;
+}
+.catchip .n { font-size: 11px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.catchip[aria-pressed="true"] { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+.catchip[aria-pressed="true"] .n { color: var(--ground); opacity: .75; }
 
 /* ---------- tabs ---------- */
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; }
@@ -313,6 +342,20 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
   .icon { width: 30px; height: 34px; }
   .stats { gap: 10px 20px; }
 }
+/* Celular: que al abrir ya se vean las tareas */
+@media (max-width: 600px) {
+  .stats { padding: 10px 14px; gap: 6px 16px; }
+  .panel-head h2 { display: none; }
+  .panel-head { justify-content: flex-end; margin-bottom: -4px; }
+  .stats { flex-wrap: wrap; }
+  .stat { display: flex; align-items: baseline; gap: 5px; }
+  .stat b { font-size: 17px; }
+  .stat span { font-size: 12px; }
+  .level-row strong { font-size: 15px; }
+  .panel-head .btn { padding: 4px 10px; font-size: 12px; }
+  .garden svg { height: 64px; }
+  .cats { margin-top: -2px; }
+}
 </style>
 </head>
 <body>
@@ -336,7 +379,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
   </header>
 
   <section class="garden" aria-label="Tu jardín">
-    <svg id="garden" viewBox="0 0 800 170" preserveAspectRatio="xMidYMax meet" role="img" aria-label="Jardín con una flor por cada tarea terminada"></svg>
+    <svg id="garden" viewBox="0 0 800 170" preserveAspectRatio="xMidYMax slice" role="img" aria-label="Jardín con una flor por cada tarea terminada"></svg>
     <div class="stats">
       <div class="level">
         <div class="level-row"><span>Nivel <strong id="lvl-name">Semilla</strong></span><span class="num" id="lvl-next">0 / 50</span></div>
@@ -356,8 +399,14 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       </div>
 
       <form class="add" id="add-form" autocomplete="off">
-        <input type="text" id="add-text" placeholder="Escribe una tarea y pulsa Enter…" aria-label="Nueva tarea" maxlength="160">
-        <div class="row">
+        <div class="add-row">
+          <input type="text" id="add-text" placeholder="Nueva tarea…" aria-label="Nueva tarea" maxlength="160" enterkeyhint="done">
+          <button class="icon opts-btn" id="add-opts-btn" type="button" aria-expanded="false" aria-controls="add-opts" title="Opciones: categoría, tamaño, repetir">
+            <svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+          </button>
+          <button class="btn primary add-go" type="submit" aria-label="Agregar tarea">Agregar</button>
+        </div>
+        <div class="row add-opts" id="add-opts" hidden>
           <select id="add-cat" aria-label="Categoría"></select>
           <div class="seg" role="group" aria-label="Tamaño" id="add-size">
             <button type="button" data-size="s" aria-pressed="true">Rapidita</button>
@@ -370,7 +419,6 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
             <option value="daily">Cada día</option>
             <option value="weekly">Cada semana</option>
           </select>
-          <button class="btn primary small" type="submit" style="margin-left:auto">Agregar</button>
         </div>
       </form>
 
@@ -379,6 +427,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
         <button role="tab" data-tab="all" aria-selected="false">Todo <span class="count num" id="c-all">0</span></button>
         <button role="tab" data-tab="done" aria-selected="false">Hechas <span class="count num" id="c-done">0</span></button>
       </div>
+      <div class="cats" id="cats" role="group" aria-label="Filtrar por categoría"></div>
       <div id="list"></div>
     </main>
 
@@ -520,6 +569,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
   const blank = () => ({ tasks: [], rewards: [], earned: 0, spent: 0, days: {}, badges: {}, redeemed: [], lastDoneAt: 0, comboCount: 0, archived: [], cleared: 0, lastBackup: 0, goalTitle: "", goalDate: "", deleted: [] });
   let state = blank();
   let tab = "today";
+  let catFilter = (() => { try { return localStorage.getItem("jardin-cat") || ""; } catch { return ""; } })();
   let addSize = "s";
   let justPlanted = null;
   let spotlight = null;
@@ -799,11 +849,39 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     return li;
   }
 
+  function renderCats(base) {
+    const box = $("cats"); box.replaceChildren();
+    if (!state.tasks.length) { box.hidden = true; return; }
+    box.hidden = false;
+    const chip = (key, label, n, color) => {
+      const b = el("button", { class: "catchip", type: "button", "aria-pressed": catFilter === key ? "true" : "false" },
+        color ? el("i", { class: "dot", style: `background:${color}` }) : null, label, el("span", { class: "n", text: String(n) }));
+      b.addEventListener("click", () => setCat(catFilter === key ? "" : key));
+      return b;
+    };
+    box.append(chip("", "Todas", base.length));
+    for (const [key, c] of Object.entries(CATS)) {
+      const n = base.filter(t => t.cat === key).length;
+      if (n || catFilter === key) box.append(chip(key, c.label, n, c.color));
+    }
+  }
+  function setCat(key) {
+    catFilter = key; spotlight = null;
+    try { localStorage.setItem("jardin-cat", key); } catch {}
+    if (key) { catSel.value = key; updateAddHint(); }
+    render();
+  }
+
   function renderList() {
     const root = $("list"); root.replaceChildren();
-    const pending = state.tasks.filter(isPending);
-    const today = pending.filter(isToday);
-    const done = doneTasks().sort((a, b) => b.doneAt - a.doneAt);
+    const allPending = state.tasks.filter(isPending);
+    const allToday = allPending.filter(isToday);
+    const allDone = doneTasks().sort((a, b) => b.doneAt - a.doneAt);
+    renderCats(tab === "today" ? allToday : tab === "done" ? allDone : allPending);
+    const inCat = (t) => !catFilter || t.cat === catFilter;
+    const pending = allPending.filter(inCat);
+    const today = allToday.filter(inCat);
+    const done = allDone.filter(inCat);
     $("c-today").textContent = today.length;
     $("c-all").textContent = pending.length;
     $("c-done").textContent = done.length;
@@ -843,7 +921,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
         }
       }
     } else if (tab === "all") {
-      const waiting = state.tasks.filter(t => t.repeat && !isPending(t));
+      const waiting = state.tasks.filter(t => t.repeat && !isPending(t) && inCat(t));
       if (!pending.length) root.append(el("div", { class: "empty" }, el("strong", { text: "¡Todo hecho!" }), el("span", { text: "No queda nada pendiente. Qué alivio." })));
       for (const [key, c] of Object.entries(CATS)) {
         const items = pending.filter(t => t.cat === key);
@@ -1130,6 +1208,8 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
   const catSel = $("add-cat");
   for (const [k, c] of Object.entries(CATS)) catSel.append(el("option", { value: k, text: c.label }));
   catSel.value = "personal";
+  if (!CATS[catFilter]) catFilter = "";
+  if (catFilter) catSel.value = catFilter;
 
   $("add-size").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-size]"); if (!b) return;
@@ -1139,13 +1219,29 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
   $("add-form").addEventListener("submit", (e) => {
     e.preventDefault();
     const inp = $("add-text");
-    const t = addTask(inp.value, catSel.value, addSize, $("add-today").checked, $("add-repeat").value);
+    const p = parseLine(inp.value.trim(), { cat: catSel.value, size: addSize, today: $("add-today").checked, repeat: $("add-repeat").value });
+    const t = addTask(p.text, p.cat, p.size, p.today, p.repeat);
     if (!t) return;
     inp.value = "";
+    toast(`Anotada en ${CATS[t.cat].label}. Una cosa menos en tu cabeza.`, "");
     if (isToday(t) && tab !== "today") tab = "today";
     if (!isToday(t) && tab === "today" && state.tasks.filter(x => isToday(x) && isPending(x)).length) tab = "all";
     persist(); render();
   });
+
+  function updateAddHint() {
+    const bits = [CATS[catSel.value].label, SIZES[addSize].label];
+    if ($("add-today").checked) bits.push("para hoy");
+    if ($("add-repeat").value) bits.push(REPEATS[$("add-repeat").value]);
+    $("add-text").placeholder = `Nueva tarea · ${bits.join(" · ")}`;
+  }
+  $("add-opts-btn").addEventListener("click", () => {
+    const open = $("add-opts").hidden;
+    $("add-opts").hidden = !open;
+    $("add-opts-btn").setAttribute("aria-expanded", open ? "true" : "false");
+  });
+  ["add-cat", "add-today", "add-repeat"].forEach(id => $(id).addEventListener("change", updateAddHint));
+  $("add-size").addEventListener("click", () => setTimeout(updateAddHint, 0));
 
   $("tabs").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-tab]"); if (!b) return;
@@ -1154,8 +1250,8 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
 
   // Etiquetas opcionales en cada línea: #categoria  @rapida|@mediana|@grande  !hoy  !diaria  !semanal
   const fold = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  function parseLine(line) {
-    const out = { text: line, cat: catSel.value, size: "m", today: false, repeat: "" };
+  function parseLine(line, defaults) {
+    const out = { text: line, cat: catSel.value, size: "m", today: false, repeat: "", ...(defaults || {}) };
     out.text = line.replace(/(^|\s)([#@!])([\p{L}\d]+)/gu, (m, sp, sign, word) => {
       const w = fold(word);
       if (sign === "#") {
@@ -1491,13 +1587,14 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
   $("sync").addEventListener("click", () => $("data-panel").scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" }));
 
   /* ================= boot ================= */
-  $("today-label").textContent = new Date().toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long" });
+  $("today-label").textContent = new Date().toLocaleDateString("es", window.innerWidth < 600 ? { weekday: "short", day: "numeric", month: "short" } : { weekday: "long", day: "numeric", month: "long" });
   state = loadLocal() || blank();
   render();
   connectDb();
   keepDataSafe();
   initSync();
   registerSW();
+  updateAddHint();
   window.addEventListener("pagehide", saveLocal);
   document.addEventListener("visibilitychange", () => { if (document.hidden) saveLocal(); else render(); });
   connectSample().then(s => {
