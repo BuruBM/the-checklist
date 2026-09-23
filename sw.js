@@ -1,7 +1,7 @@
 // Jardín de pendientes: funciona sin conexión.
 // La página se busca primero en la red (para recibir mejoras) y, sin conexión, sale de la caché.
-const CACHE = "jardin-v2";
-const SHELL = ["./", "index.html", "manifest.webmanifest", "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
+const CACHE = "jardin-v3";
+const SHELL = ["./", "index.html", "config.js", "vendor/supabase-2.117.1.js", "manifest.webmanifest", "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -27,6 +27,12 @@ self.addEventListener("fetch", (e) => {
         .then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put("./", copy)); return res; })
         .catch(() => caches.match("./").then((r) => r || caches.match("index.html")))
     );
+    return;
+  }
+
+  // Configuración: siempre la versión más nueva si hay red.
+  if (url.origin === self.location.origin && url.pathname.endsWith("/config.js")) {
+    e.respondWith(fetch(req).then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); return res; }).catch(() => caches.match(req)));
     return;
   }
 

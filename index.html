@@ -292,6 +292,15 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
 .data-status { display: flex; align-items: center; gap: 8px; font-size: 14px; }
 .data-status::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--leaf); flex: none; }
 .data-note { margin: 0; font-size: 13px; color: var(--ink-soft); }
+.data-note:empty { display: none; }
+.account { display: grid; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.account > div, .acc-form { display: grid; gap: 8px; }
+.acc-form input { border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; background: var(--ground); min-width: 0; width: 100%; }
+.data-status.warn::before { background: var(--marigold); }
+.data-status.bad::before { background: var(--danger); }
+.sync { border: 0; background: transparent; padding: 4px 0; cursor: pointer; }
+.sync[data-state="syncing"]::before { background: var(--marigold); }
+.sync[data-state="offline"]::before, .sync[data-state="error"]::before { background: var(--danger); }
 .claude-note { font-size: 12px; color: var(--ink-soft); }
 .busy { opacity: .6; pointer-events: none; }
 
@@ -323,7 +332,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       </div>
       <p class="lede" id="lede">Cada tarea que terminas planta una flor. Saca las cosas de tu cabeza, elige una pequeña y empieza por ahí.</p>
     </div>
-    <span class="sync" id="sync" data-state="local">Guardado en este navegador</span>
+    <button class="sync" id="sync" type="button" data-state="local">Guardado en este teléfono</button>
   </header>
 
   <section class="garden" aria-label="Tu jardín">
@@ -406,6 +415,26 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
 
       <section class="panel" id="data-panel">
         <h2>Tus datos</h2>
+        <div class="account" id="account" hidden>
+          <div id="acc-in" hidden>
+            <div class="data-status ok" id="acc-who">Sincronizado</div>
+            <p class="data-note" id="acc-when"></p>
+            <div class="row">
+              <button class="btn small" id="acc-sync" type="button">Sincronizar ahora</button>
+              <button class="btn small" id="acc-out" type="button">Cerrar sesión</button>
+            </div>
+          </div>
+          <form id="acc-form" class="acc-form" autocomplete="on" hidden>
+            <p class="data-note">Entra con tu cuenta para tener lo mismo en el celu y en la compu.</p>
+            <input type="email" id="acc-email" placeholder="Tu mail" autocomplete="username" required>
+            <input type="password" id="acc-pass" placeholder="Contraseña (mín. 6)" autocomplete="current-password" minlength="6" required>
+            <div class="row">
+              <button class="btn primary small" type="submit" id="acc-login">Entrar</button>
+              <button class="btn small" type="button" id="acc-signup">Crear cuenta</button>
+            </div>
+            <p class="data-note" id="acc-msg" role="status"></p>
+          </form>
+        </div>
         <div class="data-status" id="data-status">Todo se guarda solo en este teléfono</div>
         <p class="data-note" id="backup-note">Haz una copia de vez en cuando por si cambias de teléfono o borras el navegador.</p>
         <div class="row">
@@ -422,6 +451,8 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
 <div class="toasts" id="toasts" aria-live="polite"></div>
 <canvas id="fx" aria-hidden="true"></canvas>
 
+<script src="config.js"></script>
+<script src="vendor/supabase-2.117.1.js"></script>
 <script>
 (() => {
   "use strict";
@@ -486,7 +517,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
   const LS_KEY = "jardin-pendientes-v1";
 
   /* ================= state ================= */
-  const blank = () => ({ tasks: [], rewards: [], earned: 0, spent: 0, days: {}, badges: {}, redeemed: [], lastDoneAt: 0, comboCount: 0, archived: [], cleared: 0, lastBackup: 0, goalTitle: "", goalDate: "" });
+  const blank = () => ({ tasks: [], rewards: [], earned: 0, spent: 0, days: {}, badges: {}, redeemed: [], lastDoneAt: 0, comboCount: 0, archived: [], cleared: 0, lastBackup: 0, goalTitle: "", goalDate: "", deleted: [] });
   let state = blank();
   let tab = "today";
   let addSize = "s";
@@ -514,6 +545,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     b.rewards = (Array.isArray(s.rewards) ? s.rewards : []).filter(r => r && typeof r.text === "string")
       .map(r => ({ id: String(r.id || uid()), text: r.text.slice(0, 80), cost: Math.max(5, Number(r.cost) || 50) }));
     b.redeemed = Array.isArray(s.redeemed) ? s.redeemed.slice(-100) : [];
+    b.deleted = (Array.isArray(s.deleted) ? s.deleted : []).map(String).slice(-400);
     b.archived = (Array.isArray(s.archived) ? s.archived : []).filter(a => a && a.id).slice(-70);
     return b;
   }
@@ -525,6 +557,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
   let ref = null, saveTimer = null, writing = false, again = false, lastRev = null;
   function persist() {
     saveLocal();
+    cloudChanged();
     if (!ref) return;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(flush, 500);
@@ -541,8 +574,13 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
   }
   function setSync(s) {
     const el = $("sync"); el.dataset.state = s;
-    el.textContent = s === "live" ? "Guardado en la nube" : "Guardado en este navegador";
+    el.textContent = {
+      live: "Guardado en la nube", ok: "Sincronizado", syncing: "Sincronizando…",
+      offline: "Sin conexión · se sube al volver", error: "No se pudo sincronizar",
+    }[s] || "Guardado en este teléfono";
   }
+  const forget = (id) => { if (!state.deleted.includes(id)) state.deleted.push(id); if (state.deleted.length > 400) state.deleted.splice(0, state.deleted.length - 400); };
+  const unforget = (id) => { state.deleted = state.deleted.filter(x => x !== id); };
 
   async function connectDb() {
     if (!window.claude || !window.claude.use) return;
@@ -657,6 +695,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     if (t.parentId) {
       const parent = state.tasks.find(x => x.id === t.parentId);
       state.tasks.splice(state.tasks.indexOf(t), 1);
+      forget(t.id);
       if (parent) parent.nextDue = 0;
     }
     persist(); render();
@@ -666,8 +705,9 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     const idx = state.tasks.indexOf(t);
     if (idx < 0) return;
     state.tasks.splice(idx, 1);
+    forget(t.id);
     persist(); render();
-    toast("Tarea borrada.", "", { label: "Deshacer", fn: () => { state.tasks.splice(Math.min(idx, state.tasks.length), 0, t); persist(); render(); } });
+    toast("Tarea borrada.", "", { label: "Deshacer", fn: () => { unforget(t.id); state.tasks.splice(Math.min(idx, state.tasks.length), 0, t); persist(); render(); } });
   }
 
   function unlock(id) {
@@ -1074,6 +1114,7 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
       const idx = state.tasks.indexOf(t);
       const created = steps.map(s => ({ id: uid(), text: s.trim().slice(0, 200), cat: t.cat, size: "s", today: t.today, done: false, doneAt: 0, createdAt: Date.now() }));
       state.tasks.splice(idx, 1, ...created);
+      forget(t.id);
       unlock("split");
       persist(); render();
       toast(`Dividida en ${created.length} pasitos. Ahora se ve más fácil, ¿no?`, "");
@@ -1254,12 +1295,206 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
     navigator.serviceWorker.register("sw.js").catch(() => {});
   }
 
+  /* ================= sincronización (Supabase) ================= */
+  // Cada cuenta tiene una fila en la tabla "boards" con todo el estado.
+  // Cambios sin conexión quedan pendientes y se suben al volver; si otro
+  // dispositivo cambió mientras tanto, se combinan en vez de pisarse.
+  const CFG = window.JARDIN_CONFIG || {};
+  const META_KEY = "jardin-sync-meta";
+  let sb = null, user = null, channel = null;
+  let meta = (() => { try { return JSON.parse(localStorage.getItem(META_KEY)) || {}; } catch { return {}; } })();
+  let changeSeq = 0, pushing = false, pushAgain = false, pushTimer = null, pulling = null;
+  const saveMeta = () => { try { localStorage.setItem(META_KEY, JSON.stringify(meta)); } catch {} };
+
+  function cloudChanged() {
+    changeSeq++;
+    if (!meta.dirty) { meta.dirty = true; saveMeta(); }
+    if (!user) return;
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(push, 700);
+  }
+
+  function mergeStates(a, b) {
+    // a = este dispositivo, b = la nube. Une sin perder lo hecho en ninguno.
+    const gone = new Set([...a.deleted, ...b.deleted, ...a.archived.map(x => x.id), ...b.archived.map(x => x.id)]);
+    const out = normalize(clone(a));
+    const byId = new Map();
+    const pickTask = (x, y) => {
+      if (!y) return x;
+      if (x.done !== y.done) return x.done ? x : y;
+      const w = (x.doneAt || 0) >= (y.doneAt || 0) ? x : y;
+      return { ...w, nextDue: Math.max(x.nextDue || 0, y.nextDue || 0), today: x.today || y.today };
+    };
+    for (const t of [...a.tasks, ...b.tasks]) byId.set(t.id, pickTask(t, byId.get(t.id)));
+    out.tasks = [...byId.values()].filter(t => !gone.has(t.id));
+    const doneIn = (s) => new Set(s.tasks.filter(t => t.done).map(t => t.id));
+    const da = doneIn(a), db = doneIn(b);
+    const onlyA = a.tasks.filter(t => t.done && !db.has(t.id)).reduce((n, t) => n + (t.earned || 0), 0);
+    const onlyB = b.tasks.filter(t => t.done && !da.has(t.id)).reduce((n, t) => n + (t.earned || 0), 0);
+    out.earned = Math.max(a.earned + onlyB, b.earned + onlyA);
+    out.spent = Math.max(a.spent, b.spent);
+    const rw = new Map(); [...b.rewards, ...a.rewards].forEach(r => rw.set(r.id, r)); out.rewards = [...rw.values()];
+    const rd = new Map(); [...a.redeemed, ...b.redeemed].forEach(r => rd.set(r.at + r.text, r)); out.redeemed = [...rd.values()].sort((x, y) => x.at - y.at).slice(-100);
+    out.days = { ...b.days }; for (const [k, v] of Object.entries(a.days)) out.days[k] = Math.max(v, out.days[k] || 0);
+    out.badges = { ...b.badges, ...a.badges };
+    const ar = new Map(); [...a.archived, ...b.archived].forEach(x => ar.set(x.id, x)); out.archived = [...ar.values()].sort((x, y) => x.doneAt - y.doneAt).slice(-70);
+    out.cleared = Math.max(a.cleared, b.cleared);
+    out.deleted = [...new Set([...a.deleted, ...b.deleted])].slice(-400);
+    out.lastDoneAt = Math.max(a.lastDoneAt, b.lastDoneAt);
+    out.lastBackup = Math.max(a.lastBackup, b.lastBackup);
+    out.goalTitle = a.goalTitle || b.goalTitle; out.goalDate = a.goalDate || b.goalDate;
+    return out;
+  }
+
+  async function pull() {
+    if (!user) return;
+    if (pulling) return pulling;
+    pulling = (async () => {
+      setSync("syncing");
+      const { data, error } = await sb.from("boards").select("state, rev, updated_at").eq("user_id", user.id).maybeSingle();
+      if (error) { setSync(navigator.onLine ? "error" : "offline"); return; }
+      if (!data) { await push(); return; }
+      if (data.rev === meta.lastRev) { if (meta.dirty) await push(); else markSynced(data.updated_at); return; }
+      const remote = normalize(data.state);
+      if (meta.dirty && hasContent(state)) {
+        state = mergeStates(state, remote);
+        meta.lastRev = data.rev; saveMeta();
+        saveLocal(); render();
+        await push();
+        if (hasContent(remote)) toast("Juntamos lo que hiciste en tus otros dispositivos.", "");
+      } else {
+        state = remote;
+        meta.lastRev = data.rev; meta.dirty = false; saveMeta();
+        saveLocal(); render();
+        markSynced(data.updated_at);
+      }
+    })().finally(() => { pulling = null; });
+    return pulling;
+  }
+
+  async function push() {
+    if (!user) return;
+    if (pushing) { pushAgain = true; return; }
+    pushing = true; clearTimeout(pushTimer);
+    setSync("syncing");
+    const seq = changeSeq, rev = uid(), now = new Date().toISOString();
+    const row = { user_id: user.id, state: clone(state), rev, updated_at: now };
+    let conflict = false, failed = false;
+    try {
+      if (meta.lastRev) {
+        const { data, error } = await sb.from("boards").update(row).eq("user_id", user.id).eq("rev", meta.lastRev).select("rev");
+        if (error) failed = true; else if (!data || !data.length) conflict = true;
+      } else {
+        const { error } = await sb.from("boards").insert(row);
+        if (error) { if (error.code === "23505") conflict = true; else failed = true; }
+      }
+    } catch { failed = true; }
+    pushing = false;
+    if (failed) { setSync(navigator.onLine ? "error" : "offline"); return; }
+    if (conflict) { meta.dirty = true; meta.lastRev = meta.lastRev || null; saveMeta(); await pull(); return; }
+    meta.lastRev = rev;
+    meta.dirty = changeSeq !== seq;
+    saveMeta();
+    markSynced(now);
+    if (pushAgain || meta.dirty) { pushAgain = false; push(); }
+  }
+
+  function markSynced(when) {
+    meta.syncedAt = when || new Date().toISOString(); saveMeta();
+    setSync(meta.dirty ? "syncing" : "ok");
+    renderAccount();
+  }
+
+  function subscribe() {
+    unsubscribe();
+    channel = sb.channel("board-" + user.id)
+      .on("postgres_changes", { event: "*", schema: "public", table: "boards", filter: `user_id=eq.${user.id}` }, (payload) => {
+        const row = payload.new || {};
+        if (row.rev && row.rev !== meta.lastRev && !pushing) pull();
+      })
+      .subscribe();
+  }
+  function unsubscribe() { if (channel) { sb.removeChannel(channel); channel = null; } }
+
+  function renderAccount() {
+    if (!sb) return;
+    $("account").hidden = false;
+    $("acc-in").hidden = !user;
+    $("acc-form").hidden = !!user;
+    $("data-status").hidden = !!user;
+    if (user) {
+      $("acc-who").textContent = `Sincronizado como ${user.email}`;
+      const t = meta.syncedAt ? new Date(meta.syncedAt) : null;
+      $("acc-when").textContent = t ? `Última sincronización: ${t.toLocaleString("es", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : "";
+    }
+  }
+
+  function initSync() {
+    if (!CFG.supabaseUrl || !CFG.supabaseKey || !window.supabase || window.claude) return;
+    try {
+      sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, storageKey: "jardin-auth" } });
+    } catch { sb = null; return; }
+    if (meta.lastRev === undefined && hasContent(state)) { meta.dirty = true; saveMeta(); }
+    renderAccount();
+    sb.auth.onAuthStateChange((event, session) => {
+      const u = session ? session.user : null;
+      if ((u && u.id) === (user && user.id)) return;
+      // Otra cuenta en este dispositivo: empezar a sincronizar desde cero.
+      if (u && meta.userId && meta.userId !== u.id) { meta = { dirty: hasContent(state) }; }
+      user = u;
+      if (user) { meta.userId = user.id; saveMeta(); setTimeout(() => { pull(); subscribe(); }, 0); }
+      else { unsubscribe(); setSync("local"); }
+      renderAccount();
+    });
+    document.addEventListener("visibilitychange", () => { if (!document.hidden && user) pull(); });
+    window.addEventListener("online", () => { if (user) pull(); });
+    window.addEventListener("offline", () => { if (user) setSync("offline"); });
+  }
+
+  const accMsg = (t) => { $("acc-msg").textContent = t; };
+  function authError(e) {
+    const m = (e && e.message || "").toLowerCase();
+    if (m.includes("invalid login")) return "Mail o contraseña incorrectos.";
+    if (m.includes("not confirmed")) return "Falta confirmar tu mail: abre el correo que te llegó y toca el enlace. Después vuelve a Entrar.";
+    if (m.includes("already registered")) return "Ese mail ya tiene cuenta. Toca Entrar.";
+    if (m.includes("password")) return "La contraseña tiene que tener al menos 6 caracteres.";
+    if (m.includes("fetch") || !navigator.onLine) return "Sin conexión. Prueba cuando tengas internet.";
+    return "No se pudo: " + (e && e.message || "error desconocido");
+  }
+  $("acc-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!sb) return;
+    const form = $("acc-form"); form.classList.add("busy"); accMsg("Entrando…");
+    const { error } = await sb.auth.signInWithPassword({ email: $("acc-email").value.trim(), password: $("acc-pass").value });
+    form.classList.remove("busy");
+    if (error) accMsg(authError(error)); else { accMsg(""); $("acc-pass").value = ""; toast("¡Listo! Tu jardín ahora se sincroniza.", ""); chime(3); }
+  });
+  $("acc-signup").addEventListener("click", async () => {
+    if (!sb) return;
+    const email = $("acc-email").value.trim(), password = $("acc-pass").value;
+    if (!email || password.length < 6) { accMsg("Escribe tu mail y una contraseña de al menos 6 caracteres."); return; }
+    const form = $("acc-form"); form.classList.add("busy"); accMsg("Creando cuenta…");
+    const { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + location.pathname } });
+    form.classList.remove("busy");
+    if (error) { accMsg(authError(error)); return; }
+    if (data && data.session) { accMsg(""); toast("Cuenta creada. Tu jardín ya se sincroniza.", ""); chime(3); }
+    else accMsg("Te mandamos un mail para confirmar la cuenta. Toca el enlace y después vuelve aquí y toca Entrar.");
+  });
+  $("acc-out").addEventListener("click", async () => {
+    if (!sb) return;
+    await sb.auth.signOut();
+    toast("Sesión cerrada. Tus datos siguen guardados en este teléfono.", "");
+  });
+  $("acc-sync").addEventListener("click", () => { if (user) pull(); });
+  $("sync").addEventListener("click", () => $("data-panel").scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" }));
+
   /* ================= boot ================= */
   $("today-label").textContent = new Date().toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long" });
   state = loadLocal() || blank();
   render();
   connectDb();
   keepDataSafe();
+  initSync();
   registerSW();
   window.addEventListener("pagehide", saveLocal);
   document.addEventListener("visibilitychange", () => { if (document.hidden) saveLocal(); else render(); });
