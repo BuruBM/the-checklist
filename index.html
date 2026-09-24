@@ -417,6 +417,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
           <select id="add-repeat" aria-label="Repetir">
             <option value="">Una vez</option>
             <option value="daily">Cada día</option>
+            <option value="every2">Cada 2 días</option>
             <option value="weekly">Cada semana</option>
           </select>
         </div>
@@ -523,8 +524,9 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     l: { label: "Grande", pts: 50, seeds: "•••" },
   };
   const LEVELS = [
-    [0, "Semilla"], [50, "Brote"], [150, "Plantín"], [300, "Flor"], [500, "Maceta llena"],
-    [800, "Arbusto"], [1200, "Árbol joven"], [1700, "Huerto"], [2400, "Jardín"], [3300, "Bosque"], [4500, "Selva mágica"],
+    // Pensado para ~60-100 pts por día: cada nivel pide varios días de constancia, y cada vez más.
+    [0, "Semilla"], [150, "Brote"], [400, "Plantín"], [750, "Flor"], [1200, "Maceta llena"],
+    [1800, "Arbusto"], [2600, "Árbol joven"], [3600, "Huerto"], [4800, "Jardín"], [6300, "Bosque"], [8000, "Selva mágica"],
   ];
   const CHEERS = [
     "¡Una menos! Tu cabeza ya pesa un poquito menos.",
@@ -576,7 +578,10 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
   let pendingRedeem = null;
 
   const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
-  const dayKey = (d = new Date()) => d.toLocaleDateString("sv-SE");
+  // El día de la app empieza a las 5 de la mañana: lo que haces a la 1 cuenta para el día anterior.
+  const DAY_START_HOUR = 5, HOUR = 3600000;
+  const logicalDate = (ts = Date.now()) => new Date(Number(ts) - DAY_START_HOUR * HOUR);
+  const dayKey = (d = new Date()) => logicalDate(d.getTime()).toLocaleDateString("sv-SE");
   const clone = (o) => JSON.parse(JSON.stringify(o));
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
   const $ = (id) => document.getElementById(id);
@@ -589,7 +594,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       id: String(t.id || uid()), text: t.text.slice(0, 200), cat: CATS[t.cat] ? t.cat : "otros",
       size: SIZES[t.size] ? t.size : "m", today: !!t.today, done: !!t.done, doneAt: t.doneAt || 0, createdAt: t.createdAt || Date.now(),
       earned: Number(t.earned) || 0,
-      repeat: t.repeat === "daily" || t.repeat === "weekly" ? t.repeat : "", nextDue: Number(t.nextDue) || 0,
+      repeat: ["daily", "every2", "weekly"].includes(t.repeat) ? t.repeat : "", nextDue: Number(t.nextDue) || 0,
       parentId: t.parentId ? String(t.parentId) : "",
     }));
     b.rewards = (Array.isArray(s.rewards) ? s.rewards : []).filter(r => r && typeof r.text === "string")
@@ -597,6 +602,21 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     b.redeemed = Array.isArray(s.redeemed) ? s.redeemed.slice(-100) : [];
     b.deleted = (Array.isArray(s.deleted) ? s.deleted : []).map(String).slice(-400);
     b.archived = (Array.isArray(s.archived) ? s.archived : []).filter(a => a && a.id).slice(-70);
+    // Las repetidas vuelven según la última vez que se hicieron (con el día que empieza a las 5).
+    for (const t of b.tasks) if (t.repeat) {
+      const last = Math.max(0, ...b.tasks.filter(x => x.parentId === t.id && x.done).map(x => x.doneAt || 0));
+      if (last) t.nextDue = nextDueFrom(t.repeat, last);
+    }
+    // Recontar las tareas por día a partir de lo hecho (corrige lo marcado después de medianoche).
+    const doneTs = [...b.tasks.filter(t => t.done).map(t => t.doneAt), ...b.archived.map(a => a.doneAt)].filter(Boolean);
+    if (doneTs.length) {
+      const counts = {};
+      doneTs.forEach(ts => { const k = dayKey(new Date(ts)); counts[k] = (counts[k] || 0) + 1; });
+      const firstKey = dayKey(new Date(Math.min(...doneTs)));
+      const older = {};
+      for (const [k, v] of Object.entries(b.days)) if (k < firstKey) older[k] = v;
+      b.days = { ...older, ...counts };
+    }
     return b;
   }
 
@@ -677,17 +697,18 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
   }
   const isPending = (t) => !t.done && !(t.repeat && t.nextDue > Date.now());
   const isToday = (t) => t.today || !!t.repeat;
-  const REPEATS = { daily: "cada día", weekly: "cada semana" };
+  const REPEATS = { daily: "cada día", every2: "cada 2 días", weekly: "cada semana" };
+  const REPEAT_DAYS = { daily: 1, every2: 2, weekly: 7 };
   function nextDueFrom(repeat, now) {
-    const d = new Date(now); d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() + (repeat === "weekly" ? 7 : 1));
+    const d = logicalDate(now); d.setHours(DAY_START_HOUR, 0, 0, 0);
+    d.setDate(d.getDate() + (REPEAT_DAYS[repeat] || 1));
     return d.getTime();
   }
   function daysLeft() {
     if (!state.goalDate) return null;
     const [y, m, d] = state.goalDate.split("-").map(Number);
     if (!y || !m || !d) return null;
-    const goal = new Date(y, m - 1, d), today = new Date(); today.setHours(0, 0, 0, 0);
+    const goal = new Date(y, m - 1, d), today = logicalDate(); today.setHours(0, 0, 0, 0);
     return Math.round((goal - today) / 86400000);
   }
   const wallet = () => Math.max(0, state.earned - state.spent);
@@ -1248,7 +1269,7 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
     tab = b.dataset.tab; spotlight = null; render();
   });
 
-  // Etiquetas opcionales en cada línea: #categoria  @rapida|@mediana|@grande  !hoy  !diaria  !semanal
+  // Etiquetas opcionales en cada línea: #categoria  @rapida|@mediana|@grande  !hoy  !diaria  !cada2  !semanal
   const fold = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   function parseLine(line, defaults) {
     const out = { text: line, cat: catSel.value, size: "m", today: false, repeat: "", ...(defaults || {}) };
@@ -1264,6 +1285,7 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
         if (w === "hoy") { out.today = true; return ""; }
         if (w === "diaria" || w === "diario") { out.repeat = "daily"; return ""; }
         if (w === "semanal") { out.repeat = "weekly"; return ""; }
+        if (w === "cada2" || w === "cada2dias") { out.repeat = "every2"; return ""; }
       }
       return m;
     }).replace(/\s{2,}/g, " ").trim();
@@ -1587,7 +1609,7 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
   $("sync").addEventListener("click", () => $("data-panel").scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" }));
 
   /* ================= boot ================= */
-  $("today-label").textContent = new Date().toLocaleDateString("es", window.innerWidth < 600 ? { weekday: "short", day: "numeric", month: "short" } : { weekday: "long", day: "numeric", month: "long" });
+  $("today-label").textContent = logicalDate().toLocaleDateString("es", window.innerWidth < 600 ? { weekday: "short", day: "numeric", month: "short" } : { weekday: "long", day: "numeric", month: "long" });
   state = loadLocal() || blank();
   render();
   connectDb();
