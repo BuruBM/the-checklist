@@ -144,6 +144,28 @@ button { cursor: pointer; }
 .goal-form { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .goal-form input { border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; background: var(--surface); min-width: 0; }
 .rep { color: var(--c-viaje); font-weight: 700; }
+.due { font-weight: 700; }
+.due.over { color: var(--danger); }
+.due.today { color: #B7791F; }
+.due.soon { color: var(--c-viaje); }
+.due.later { color: var(--ink-soft); }
+.group-title.over { color: var(--danger); }
+.tbody { cursor: pointer; border-radius: 8px; }
+.overlay.sheet-wrap { align-items: end; padding: 0; }
+.card.sheet {
+  text-align: left; max-width: 520px; border-radius: 22px 22px 0 0; padding: 18px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+  gap: 14px;
+}
+@media (min-width: 601px) { .overlay.sheet-wrap { align-items: center; padding: 16px; } .card.sheet { border-radius: 22px; } }
+.sheet-head { display: flex; justify-content: space-between; align-items: center; }
+.card.sheet .sheet-head h3 { font-size: 20px; }
+.sheet textarea { width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--ground); resize: vertical; line-height: 1.45; }
+.sheet input[type="date"] { border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; background: var(--ground); }
+.field { display: grid; gap: 6px; }
+.flabel { font-size: 12px; font-weight: 700; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .06em; }
+.sheet-actions { justify-content: space-between; margin-top: 4px; }
+.btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
+.add-opts input[type="date"] { border: 1px solid var(--line); border-radius: 99px; padding: 5px 10px; background: var(--ground); font-size: 13px; }
 .task.waiting { opacity: .65; }
 .task.waiting .rep { width: 28px; text-align: center; }
 .sync { font-size: 12px; color: var(--ink-soft); display: inline-flex; align-items: center; gap: 6px; }
@@ -414,6 +436,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
             <button type="button" data-size="l" aria-pressed="false">Grande</button>
           </div>
           <label class="toggle"><input type="checkbox" id="add-today"> Para hoy</label>
+          <label class="toggle">Para el <input type="date" id="add-due" aria-label="Fecha límite"></label>
           <select id="add-repeat" aria-label="Repetir">
             <option value="">Una vez</option>
             <option value="daily">Cada día</option>
@@ -425,6 +448,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
 
       <div class="tabs" role="tablist" id="tabs">
         <button role="tab" data-tab="today" aria-selected="true">Hoy <span class="count num" id="c-today">0</span></button>
+        <button role="tab" data-tab="dates" aria-selected="false">Próximas <span class="count num" id="c-dates">0</span></button>
         <button role="tab" data-tab="all" aria-selected="false">Todo <span class="count num" id="c-all">0</span></button>
         <button role="tab" data-tab="done" aria-selected="false">Hechas <span class="count num" id="c-done">0</span></button>
       </div>
@@ -596,6 +620,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       earned: Number(t.earned) || 0,
       repeat: ["daily", "every2", "weekly"].includes(t.repeat) ? t.repeat : "", nextDue: Number(t.nextDue) || 0,
       parentId: t.parentId ? String(t.parentId) : "",
+      due: /^\d{4}-\d{2}-\d{2}$/.test(t.due || "") ? t.due : "",
     }));
     b.rewards = (Array.isArray(s.rewards) ? s.rewards : []).filter(r => r && typeof r.text === "string")
       .map(r => ({ id: String(r.id || uid()), text: r.text.slice(0, 80), cost: Math.max(5, Number(r.cost) || 50) }));
@@ -696,7 +721,27 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     return n;
   }
   const isPending = (t) => !t.done && !(t.repeat && t.nextDue > Date.now());
-  const isToday = (t) => t.today || !!t.repeat;
+  const isToday = (t) => t.today || !!t.repeat || (!!t.due && t.due <= dayKey());
+  const keyToDate = (k) => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
+  const dateToKey = (d) => d.toLocaleDateString("sv-SE");
+  function dueDiff(t) {
+    if (!t.due) return null;
+    return Math.round((keyToDate(t.due) - keyToDate(dayKey())) / 86400000);
+  }
+  function dueInfo(t) {
+    const n = dueDiff(t);
+    if (n === null || t.done) return null;
+    const d = keyToDate(t.due);
+    const short = d.toLocaleDateString("es", { day: "numeric", month: "short" });
+    if (n < 0) return { cls: "over", label: n === -1 ? "Venció ayer" : `Venció el ${short}` };
+    if (n === 0) return { cls: "today", label: "Vence hoy" };
+    if (n === 1) return { cls: "soon", label: "Para mañana" };
+    if (n < 7) return { cls: "soon", label: "Para el " + d.toLocaleDateString("es", { weekday: "long", day: "numeric" }) };
+    return { cls: "later", label: `Para el ${short}` };
+  }
+  // Prioridad: primero lo que vence antes, después lo marcado para hoy, después lo más rápido.
+  const prio = (a, b) => ((a.due || "9999") < (b.due || "9999") ? -1 : (a.due || "9999") > (b.due || "9999") ? 1 : 0)
+    || (Number(!!b.today) - Number(!!a.today)) || (sizeRank(a) - sizeRank(b));
   const REPEATS = { daily: "cada día", every2: "cada 2 días", weekly: "cada semana" };
   const REPEAT_DAYS = { daily: 1, every2: 2, weekly: 7 };
   function nextDueFrom(repeat, now) {
@@ -715,10 +760,10 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
   const doneTasks = () => state.tasks.filter(t => t.done);
 
   /* ================= actions ================= */
-  function addTask(text, cat, size, today, repeat) {
+  function addTask(text, cat, size, today, repeat, due) {
     text = text.trim(); if (!text) return null;
     const t = { id: uid(), text: text.slice(0, 200), cat: CATS[cat] ? cat : "otros", size: SIZES[size] ? size : "m", today: !!today, done: false, doneAt: 0, createdAt: Date.now(),
-      repeat: REPEATS[repeat] ? repeat : "", nextDue: 0, parentId: "" };
+      repeat: REPEATS[repeat] ? repeat : "", nextDue: 0, parentId: "", due: repeat ? "" : (due || "") };
     state.tasks.push(t); return t;
   }
 
@@ -829,6 +874,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
   const ICONS = {
     star: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>',
     trash: '<path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 12.5h9l1-12.5"/>',
+    edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
     split: '<path d="M5 5h6M5 12h9M5 19h14"/><circle cx="16" cy="5" r="1.4"/>',
     check: '<path d="M5 12.5l4.5 4.5L19 7.5" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
   };
@@ -846,7 +892,13 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       el("span", { class: "pts num", text: t.done ? `+${t.earned || SIZES[t.size].pts} pts` : `${SIZES[t.size].pts} pts` }),
       t.repeat ? el("span", { class: "rep", text: `↻ ${REPEATS[t.repeat]}` }) : null,
     );
-    const body = el("div", { class: "tbody" }, el("div", { class: "ttext", text: t.text }), meta);
+    const di = dueInfo(t);
+    if (di) meta.prepend(el("span", { class: "due " + di.cls, text: di.label }));
+    const body = el("div", { class: "tbody", role: "button", tabindex: "0", title: "Editar" }, el("div", { class: "ttext", text: t.text }), meta);
+    if (t.id !== "ex") {
+      body.addEventListener("click", () => openEditor(t));
+      body.addEventListener("keydown", (e) => { if (e.key === "Enter") openEditor(t); });
+    }
     const acts = el("div", { class: "tactions" });
     if (!t.done && !t.repeat) {
       const star = el("button", { class: "icon" + (t.today ? " on" : ""), type: "button", "aria-label": t.today ? "Quitar de hoy" : "Para hoy", title: t.today ? "Quitar de hoy" : "Para hoy (+5 pts)" });
@@ -862,10 +914,10 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
         acts.append(sp);
       }
     }
-    const del = el("button", { class: "icon", type: "button", "aria-label": "Borrar", title: "Borrar" });
-    del.append(svgIcon("trash"));
-    del.addEventListener("click", () => remove(t));
-    acts.append(del);
+    const ed = el("button", { class: "icon", type: "button", "aria-label": "Editar", title: "Editar" });
+    ed.append(svgIcon("edit"));
+    ed.addEventListener("click", () => openEditor(t));
+    acts.append(ed);
     li.append(chk, body, acts);
     return li;
   }
@@ -898,7 +950,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     const allPending = state.tasks.filter(isPending);
     const allToday = allPending.filter(isToday);
     const allDone = doneTasks().sort((a, b) => b.doneAt - a.doneAt);
-    renderCats(tab === "today" ? allToday : tab === "done" ? allDone : allPending);
+    renderCats(tab === "today" ? allToday : tab === "done" ? allDone : tab === "dates" ? allPending.filter(t => !t.repeat) : allPending);
     const inCat = (t) => !catFilter || t.cat === catFilter;
     const pending = allPending.filter(inCat);
     const today = allToday.filter(inCat);
@@ -906,6 +958,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     $("c-today").textContent = today.length;
     $("c-all").textContent = pending.length;
     $("c-done").textContent = done.length;
+    $("c-dates").textContent = pending.filter(t => t.due).length;
 
     if (!state.tasks.length) {
       root.append(el("div", { class: "empty" }, el("strong", { text: "Tu lista está vacía (y eso está bien)." }),
@@ -928,24 +981,40 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
           el("span", { text: pending.length ? "Marca con la estrella 2 o 3 cosas para hoy. Mejor pocas y hechas que muchas y pesadas." : "Disfruta tu jardín. Te lo ganaste." })));
         if (pending.length) {
           const g = el("ul", { class: "list" });
-          [...pending].sort((a, b) => sizeRank(a) - sizeRank(b)).slice(0, 4).forEach(t => g.append(taskRow(t)));
+          [...pending].sort(prio).slice(0, 4).forEach(t => g.append(taskRow(t)));
           root.append(el("div", { class: "group-title", text: "Sugerencias rápidas para empezar" }), g);
         }
       } else {
         const g = el("ul", { class: "list" });
-        today.sort((a, b) => sizeRank(a) - sizeRank(b)).forEach(t => g.append(taskRow(t)));
-        const doneToday = done.filter(t => t.today && dayKey(new Date(t.doneAt)) === dayKey());
+        today.sort(prio).forEach(t => g.append(taskRow(t)));
+        const doneToday = done.filter(t => dayKey(new Date(t.doneAt)) === dayKey());
         root.append(g);
         if (doneToday.length) {
           const g2 = el("ul", { class: "list" }); doneToday.forEach(t => g2.append(taskRow(t)));
           root.append(el("div", { class: "group-title", text: `Ya hechas hoy · ${doneToday.length}` }), g2);
         }
       }
+    } else if (tab === "dates") {
+      const groups = [["Vencidas", n => n < 0], ["Hoy", n => n === 0], ["Mañana", n => n === 1], ["Esta semana", n => n > 1 && n < 7], ["Más adelante", n => n >= 7]];
+      const once = pending.filter(t => !t.repeat).sort(prio);
+      if (!once.some(t => t.due)) root.append(el("div", { class: "empty" }, el("strong", { text: "Todavía no pusiste fechas." }),
+        el("span", { text: "Toca una tarea para editarla y ponerle para cuándo la necesitas. Aquí se ordenan solas por urgencia." })));
+      for (const [label, test] of groups) {
+        const items = once.filter(t => t.due && test(dueDiff(t)));
+        if (!items.length) continue;
+        const g = el("ul", { class: "list" }); items.forEach(t => g.append(taskRow(t)));
+        root.append(el("div", { class: "group" }, el("div", { class: "group-title" + (label === "Vencidas" ? " over" : ""), text: `${label} · ${items.length}` }), g));
+      }
+      const nodate = once.filter(t => !t.due);
+      if (nodate.length) {
+        const g = el("ul", { class: "list" }); nodate.forEach(t => g.append(taskRow(t)));
+        root.append(el("div", { class: "group" }, el("div", { class: "group-title", text: `Sin fecha · ${nodate.length}` }), g));
+      }
     } else if (tab === "all") {
       const waiting = state.tasks.filter(t => t.repeat && !isPending(t) && inCat(t));
       if (!pending.length) root.append(el("div", { class: "empty" }, el("strong", { text: "¡Todo hecho!" }), el("span", { text: "No queda nada pendiente. Qué alivio." })));
       for (const [key, c] of Object.entries(CATS)) {
-        const items = pending.filter(t => t.cat === key);
+        const items = pending.filter(t => t.cat === key).sort(prio);
         if (!items.length) continue;
         const g = el("ul", { class: "list" }); items.forEach(t => g.append(taskRow(t)));
         root.append(el("div", { class: "group" },
@@ -1114,6 +1183,61 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab ? "true" : "false"));
   }
 
+  /* ================= editar tarea ================= */
+  function openEditor(t) {
+    const o = el("div", { class: "overlay sheet-wrap", onclick: (e) => { if (e.target === o) close(); } });
+    const close = () => { o.remove(); document.removeEventListener("keydown", onKey); };
+    const onKey = (e) => { if (e.key === "Escape") close(); };
+    document.addEventListener("keydown", onKey);
+    let size = t.size;
+    const txt = el("textarea", { id: "ed-text", rows: "2", maxlength: "200", "aria-label": "Tarea" }); txt.value = t.text;
+    const cat = el("select", { id: "ed-cat", "aria-label": "Categoría" });
+    for (const [k, c] of Object.entries(CATS)) cat.append(el("option", { value: k, text: c.label }));
+    cat.value = t.cat;
+    const seg = el("div", { class: "seg", role: "group", "aria-label": "Tamaño" });
+    for (const [k, v] of Object.entries(SIZES)) {
+      const b = el("button", { type: "button", "aria-pressed": k === size ? "true" : "false", text: v.label });
+      b.addEventListener("click", () => { size = k; seg.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b ? "true" : "false")); });
+      seg.append(b);
+    }
+    const due = el("input", { type: "date", id: "ed-due", "aria-label": "Fecha límite" }); due.value = t.due || "";
+    const quick = (label, days) => el("button", { class: "chip", type: "button", text: label, onclick: () => {
+      if (days === null) { due.value = ""; return; }
+      const d = keyToDate(dayKey()); d.setDate(d.getDate() + days); due.value = dateToKey(d);
+    } });
+    const today = el("input", { type: "checkbox", id: "ed-today" }); today.checked = !!t.today;
+    const rep = el("select", { id: "ed-repeat", "aria-label": "Repetir" });
+    [["", "Una vez"], ["daily", "Cada día"], ["every2", "Cada 2 días"], ["weekly", "Cada semana"]].forEach(([v, l]) => rep.append(el("option", { value: v, text: l })));
+    rep.value = t.repeat || "";
+    const dueRow = el("div", { class: "field" }, el("span", { class: "flabel", text: "¿Para cuándo?" }),
+      el("div", { class: "row" }, due, quick("Hoy", 0), quick("Mañana", 1), quick("En 1 semana", 7), quick("Sin fecha", null)));
+    const syncRep = () => { dueRow.hidden = !!rep.value; };
+    rep.addEventListener("change", syncRep); syncRep();
+    const save = () => {
+      const text = txt.value.trim();
+      if (!text) { txt.focus(); return; }
+      t.text = text.slice(0, 200); t.cat = cat.value; t.size = size;
+      if (!t.done) {
+        t.today = today.checked;
+        if (rep.value !== t.repeat) { t.repeat = rep.value; t.nextDue = 0; }
+        t.due = t.repeat ? "" : due.value;
+      }
+      persist(); render(); close();
+      toast("Tarea actualizada.", "");
+    };
+    const delBtn = el("button", { class: "btn small danger", type: "button", text: "Borrar tarea", onclick: () => { close(); remove(t); } });
+    const card = el("form", { class: "card sheet", role: "dialog", "aria-modal": "true", "aria-label": "Editar tarea", onsubmit: (e) => { e.preventDefault(); save(); } },
+      el("div", { class: "sheet-head" }, el("h3", { text: "Editar tarea" }), el("button", { class: "icon", type: "button", "aria-label": "Cerrar", text: "✕", onclick: close })),
+      txt,
+      el("div", { class: "field" }, el("span", { class: "flabel", text: "Categoría y tamaño" }), el("div", { class: "row" }, cat, seg)),
+      t.done ? null : dueRow,
+      t.done ? null : el("div", { class: "row" }, el("label", { class: "toggle" }, today, " Para hoy"), rep),
+      el("div", { class: "row sheet-actions" }, delBtn, el("button", { class: "btn primary", type: "submit", text: "Guardar" })));
+    o.append(card);
+    document.body.append(o);
+    txt.focus(); txt.setSelectionRange(txt.value.length, txt.value.length);
+  }
+
   /* ================= feedback ================= */
   function toast(msg, pts, action, extraClass) {
     const t = el("div", { class: "toast" + (extraClass ? " " + extraClass : "") }, el("span", { text: msg }));
@@ -1240,8 +1364,9 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
   $("add-form").addEventListener("submit", (e) => {
     e.preventDefault();
     const inp = $("add-text");
-    const p = parseLine(inp.value.trim(), { cat: catSel.value, size: addSize, today: $("add-today").checked, repeat: $("add-repeat").value });
-    const t = addTask(p.text, p.cat, p.size, p.today, p.repeat);
+    const p = parseLine(inp.value.trim(), { cat: catSel.value, size: addSize, today: $("add-today").checked, repeat: $("add-repeat").value, due: $("add-due").value });
+    const t = addTask(p.text, p.cat, p.size, p.today, p.repeat, p.due);
+    $("add-due").value = ""; updateAddHint();
     if (!t) return;
     inp.value = "";
     toast(`Anotada en ${CATS[t.cat].label}. Una cosa menos en tu cabeza.`, "");
@@ -1254,6 +1379,7 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
     const bits = [CATS[catSel.value].label, SIZES[addSize].label];
     if ($("add-today").checked) bits.push("para hoy");
     if ($("add-repeat").value) bits.push(REPEATS[$("add-repeat").value]);
+    if ($("add-due").value) bits.push("para el " + keyToDate($("add-due").value).toLocaleDateString("es", { day: "numeric", month: "short" }));
     $("add-text").placeholder = `Nueva tarea · ${bits.join(" · ")}`;
   }
   $("add-opts-btn").addEventListener("click", () => {
@@ -1261,7 +1387,7 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
     $("add-opts").hidden = !open;
     $("add-opts-btn").setAttribute("aria-expanded", open ? "true" : "false");
   });
-  ["add-cat", "add-today", "add-repeat"].forEach(id => $(id).addEventListener("change", updateAddHint));
+  ["add-cat", "add-today", "add-repeat", "add-due"].forEach(id => $(id).addEventListener("change", updateAddHint));
   $("add-size").addEventListener("click", () => setTimeout(updateAddHint, 0));
 
   $("tabs").addEventListener("click", (e) => {
@@ -1273,7 +1399,7 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
   const fold = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   function parseLine(line, defaults) {
     const out = { text: line, cat: catSel.value, size: "m", today: false, repeat: "", ...(defaults || {}) };
-    out.text = line.replace(/(^|\s)([#@!])([\p{L}\d]+)/gu, (m, sp, sign, word) => {
+    out.text = line.replace(/(^|\s)([#@!])([\p{L}\d/]+)/gu, (m, sp, sign, word) => {
       const w = fold(word);
       if (sign === "#") {
         const key = Object.keys(CATS).find(k => k === w || fold(CATS[k].label).split(" ")[0] === w);
@@ -1286,6 +1412,14 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
         if (w === "diaria" || w === "diario") { out.repeat = "daily"; return ""; }
         if (w === "semanal") { out.repeat = "weekly"; return ""; }
         if (w === "cada2" || w === "cada2dias") { out.repeat = "every2"; return ""; }
+        if (w === "manana") { const d = keyToDate(dayKey()); d.setDate(d.getDate() + 1); out.due = dateToKey(d); return ""; }
+        const dm = w.match(/^(\d{1,2})\/(\d{1,2})$/);
+        if (dm) {
+          const today = keyToDate(dayKey());
+          let d = new Date(today.getFullYear(), Number(dm[2]) - 1, Number(dm[1]));
+          if (d < today && (today - d) > 60 * 86400000) d.setFullYear(d.getFullYear() + 1);
+          out.due = dateToKey(d); return "";
+        }
       }
       return m;
     }).replace(/\s{2,}/g, " ").trim();
@@ -1296,7 +1430,7 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
   $("dump-add").addEventListener("click", () => {
     const lines = $("dump-text").value.split(/\n+/).map(s => s.replace(/^[\s\-*•·\d.)]+/, "").trim()).filter(Boolean);
     if (!lines.length) { toast("Escribe al menos una cosa, una por línea.", ""); return; }
-    lines.forEach(l => { const p = parseLine(l); addTask(p.text, p.cat, p.size, p.today, p.repeat); });
+    lines.forEach(l => { const p = parseLine(l); addTask(p.text, p.cat, p.size, p.today, p.repeat, p.due); });
     $("dump-text").value = "";
     if (lines.length >= 5) unlock("dump");
     tab = "all";
@@ -1331,10 +1465,11 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
   $("where-start").addEventListener("click", () => {
     const pending = state.tasks.filter(isPending);
     if (!pending.length) { toast(state.tasks.length ? "¡No queda nada! Descansa." : "Primero vacía tu cabeza: escribe todo en el panel de la derecha.", ""); return; }
-    const pool = pending.filter(isToday);
+    const urgent = pending.filter(t => t.due && dueDiff(t) <= 0);
+    const pool = urgent.length ? urgent : pending.filter(isToday);
     const src = pool.length ? pool : pending;
     const min = Math.min(...src.map(sizeRank));
-    const choice = pick(src.filter(t => sizeRank(t) === min));
+    const choice = urgent.length ? [...urgent].sort(prio)[0] : pick(src.filter(t => sizeRank(t) === min));
     spotlight = choice.id;
     tab = isToday(choice) ? "today" : "all";
     render();
