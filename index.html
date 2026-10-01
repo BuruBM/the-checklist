@@ -150,6 +150,9 @@ button { cursor: pointer; }
 .due.soon { color: var(--c-viaje); }
 .due.later { color: var(--ink-soft); }
 .group-title.over { color: var(--danger); }
+.group-title.later-title { color: var(--c-personal); margin-top: 14px; }
+.later-chip { color: var(--c-personal); font-weight: 600; }
+.later-toggle { font-weight: 500; }
 .tbody { cursor: pointer; border-radius: 8px; }
 .overlay.sheet-wrap { align-items: end; padding: 0; }
 .card.sheet {
@@ -437,6 +440,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
             <button type="button" data-size="l" aria-pressed="false">Grande</button>
           </div>
           <label class="toggle"><input type="checkbox" id="add-today"> Para hoy</label>
+          <label class="toggle"><input type="checkbox" id="add-later"> Para más adelante</label>
           <label class="toggle">Para el <input type="date" id="add-due" aria-label="Fecha límite"></label>
           <select id="add-repeat" aria-label="Repetir">
             <option value="">Una vez</option>
@@ -633,6 +637,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       repeat: ["daily", "every2", "weekly"].includes(t.repeat) ? t.repeat : "", nextDue: Number(t.nextDue) || 0,
       parentId: t.parentId ? String(t.parentId) : "",
       due: /^\d{4}-\d{2}-\d{2}$/.test(t.due || "") ? t.due : "",
+      later: !!t.later,
     }));
     b.rewards = (Array.isArray(s.rewards) ? s.rewards : []).filter(r => r && typeof r.text === "string")
       .map(r => ({ id: String(r.id || uid()), text: r.text.slice(0, 80), cost: Math.max(5, Number(r.cost) || 50) }));
@@ -733,6 +738,12 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     return n;
   }
   const isPending = (t) => !t.done && !(t.repeat && t.nextDue > Date.now());
+  // «Para más adelante»: tareas sin apuro, fuera de la meta (no cuentan para la cuenta regresiva).
+  const isNow = (t) => !t.later;
+  function laterLabel() {
+    const left = daysLeft();
+    return state.goalDate && left !== null && left >= 0 ? `Después de ${state.goalTitle || "tu meta"}` : "Para más adelante";
+  }
   const isToday = (t) => t.today || !!t.repeat || (!!t.due && t.due <= dayKey());
   const keyToDate = (k) => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
   const dateToKey = (d) => d.toLocaleDateString("sv-SE");
@@ -772,10 +783,10 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
   const doneTasks = () => state.tasks.filter(t => t.done);
 
   /* ================= actions ================= */
-  function addTask(text, cat, size, today, repeat, due) {
+  function addTask(text, cat, size, today, repeat, due, later) {
     text = text.trim(); if (!text) return null;
     const t = { id: uid(), text: text.slice(0, 200), cat: CATS[cat] ? cat : "otros", size: SIZES[size] ? size : "m", today: !!today, done: false, doneAt: 0, createdAt: Date.now(),
-      repeat: REPEATS[repeat] ? repeat : "", nextDue: 0, parentId: "", due: repeat ? "" : (due || "") };
+      repeat: REPEATS[repeat] ? repeat : "", nextDue: 0, parentId: "", due: repeat ? "" : (due || ""), later: !repeat && !!later };
     state.tasks.push(t); return t;
   }
 
@@ -903,6 +914,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       el("span", { title: SIZES[t.size].label }, el("span", { class: "seeds", text: SIZES[t.size].seeds }), " " + SIZES[t.size].label),
       el("span", { class: "pts num", text: t.done ? `+${t.earned || SIZES[t.size].pts} pts` : `${SIZES[t.size].pts} pts` }),
       t.repeat ? el("span", { class: "rep", text: `↻ ${REPEATS[t.repeat]}` }) : null,
+      t.later && !t.done ? el("span", { class: "later-chip", text: "⏳ Para después" }) : null,
     );
     const di = dueInfo(t);
     if (di) meta.prepend(el("span", { class: "due " + di.cls, text: di.label }));
@@ -993,7 +1005,8 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
           el("span", { text: pending.length ? "Marcá con la estrella 2 o 3 cosas para hoy. Mejor pocas y hechas que muchas y pesadas." : "Disfrutá tu jardín. Te lo ganaste." })));
         if (pending.length) {
           const g = el("ul", { class: "list" });
-          [...pending].sort(prio).slice(0, 4).forEach(t => g.append(taskRow(t)));
+          const sug = pending.filter(isNow).length ? pending.filter(isNow) : pending;
+          [...sug].sort(prio).slice(0, 4).forEach(t => g.append(taskRow(t)));
           root.append(el("div", { class: "group-title", text: "Sugerencias rápidas para empezar" }), g);
         }
       } else {
@@ -1017,20 +1030,32 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
         const g = el("ul", { class: "list" }); items.forEach(t => g.append(taskRow(t)));
         root.append(el("div", { class: "group" }, el("div", { class: "group-title" + (label === "Vencidas" ? " over" : ""), text: `${label} · ${items.length}` }), g));
       }
-      const nodate = once.filter(t => !t.due);
+      const nodate = once.filter(t => !t.due && isNow(t));
       if (nodate.length) {
         const g = el("ul", { class: "list" }); nodate.forEach(t => g.append(taskRow(t)));
         root.append(el("div", { class: "group" }, el("div", { class: "group-title", text: `Sin fecha · ${nodate.length}` }), g));
+      }
+      const laterNoDate = once.filter(t => !t.due && t.later);
+      if (laterNoDate.length) {
+        const g = el("ul", { class: "list" }); laterNoDate.forEach(t => g.append(taskRow(t)));
+        root.append(el("div", { class: "group" }, el("div", { class: "group-title later-title", text: `⏳ ${laterLabel()} · ${laterNoDate.length}` }), g));
       }
     } else if (tab === "all") {
       const waiting = state.tasks.filter(t => t.repeat && !isPending(t) && inCat(t));
       if (!pending.length) root.append(el("div", { class: "empty" }, el("strong", { text: "¡Todo hecho!" }), el("span", { text: "No queda nada pendiente. Qué alivio." })));
       for (const [key, c] of Object.entries(CATS)) {
-        const items = pending.filter(t => t.cat === key).sort(prio);
+        const items = pending.filter(t => t.cat === key && isNow(t)).sort(prio);
         if (!items.length) continue;
         const g = el("ul", { class: "list" }); items.forEach(t => g.append(taskRow(t)));
         root.append(el("div", { class: "group" },
           el("div", { class: "group-title" }, el("i", { class: "dot", style: `background:${c.color}` }), `${c.label} · ${items.length}`), g));
+      }
+      const laterAll = pending.filter(t => t.later).sort(prio);
+      if (laterAll.length) {
+        const g = el("ul", { class: "list" }); laterAll.forEach(t => g.append(taskRow(t)));
+        root.append(el("div", { class: "group" },
+          el("div", { class: "group-title later-title", text: `⏳ ${laterLabel()} · ${laterAll.length}` }),
+          el("p", { class: "data-note", text: "Sin apuro: no cuentan para la cuenta regresiva." }), g));
       }
       if (waiting.length) {
         const g = el("ul", { class: "list" });
@@ -1101,7 +1126,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     if (left === null) { pill.className = "goal-pill empty"; pill.textContent = "+ Poner una fecha límite (viaje, entrega…)"; return; }
     pill.className = "goal-pill";
     const title = state.goalTitle || "Tu meta";
-    const pend = state.tasks.filter(t => isPending(t) && !t.repeat).length;
+    const pend = state.tasks.filter(t => isPending(t) && !t.repeat && isNow(t)).length;
     if (left > 1) {
       const per = Math.ceil(pend / Math.max(1, left - 1));
       pill.append(`${title}: `, el("b", { class: "num", text: `faltan ${left} días` }),
@@ -1134,9 +1159,13 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     $("st-today").textContent = state.days[dayKey()] || 0;
     $("st-streak").textContent = streak();
     $("wallet").textContent = wallet();
-    const pending = state.tasks.filter(t => isPending(t) && !t.repeat).length;
+    const pending = state.tasks.filter(t => isPending(t) && !t.repeat && isNow(t)).length;
     const reps = state.tasks.filter(t => t.repeat).length;
-    const repsTxt = reps ? ` (y ${reps} ${reps === 1 ? "tarea que se repite" : "tareas que se repiten"})` : "";
+    const laterN = state.tasks.filter(t => isPending(t) && !t.repeat && t.later).length;
+    const extras = [];
+    if (reps) extras.push(`${reps} ${reps === 1 ? "que se repite" : "que se repiten"}`);
+    if (laterN) extras.push(`${laterN} para más adelante`);
+    const repsTxt = extras.length ? ` (más ${extras.join(" y ")})` : "";
     const doneToday = state.days[dayKey()] || 0;
     let lede;
     if (!state.tasks.length) lede = "Cada tarea que terminás planta una flor. Sacá las cosas de tu cabeza, elegí una chiquita y empezá por ahí.";
@@ -1218,6 +1247,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       const d = keyToDate(dayKey()); d.setDate(d.getDate() + days); due.value = dateToKey(d);
     } });
     const today = el("input", { type: "checkbox", id: "ed-today" }); today.checked = !!t.today;
+    const later = el("input", { type: "checkbox", id: "ed-later" }); later.checked = !!t.later;
     const rep = el("select", { id: "ed-repeat", "aria-label": "Repetir" });
     [["", "Una vez"], ["daily", "Cada día"], ["every2", "Cada 2 días"], ["weekly", "Cada semana"]].forEach(([v, l]) => rep.append(el("option", { value: v, text: l })));
     rep.value = t.repeat || "";
@@ -1231,6 +1261,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       t.text = text.slice(0, 200); t.cat = cat.value; t.size = size;
       if (!t.done) {
         t.today = today.checked;
+        t.later = !rep.value && later.checked;
         if (rep.value !== t.repeat) { t.repeat = rep.value; t.nextDue = 0; }
         t.due = t.repeat ? "" : due.value;
       }
@@ -1244,6 +1275,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       el("div", { class: "field" }, el("span", { class: "flabel", text: "Categoría y tamaño" }), el("div", { class: "row" }, cat, seg)),
       t.done ? null : dueRow,
       t.done ? null : el("div", { class: "row" }, el("label", { class: "toggle" }, today, " Para hoy"), rep),
+      t.done ? null : el("label", { class: "toggle later-toggle" }, later, ` Para más adelante · no cuenta para ${state.goalDate && daysLeft() !== null && daysLeft() >= 0 ? "«" + (state.goalTitle || "tu meta") + "»" : "la cuenta regresiva"}`),
       el("div", { class: "row sheet-actions" }, delBtn, el("button", { class: "btn primary", type: "submit", text: "Guardar" })));
     o.append(card);
     document.body.append(o);
@@ -1376,8 +1408,8 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
   $("add-form").addEventListener("submit", (e) => {
     e.preventDefault();
     const inp = $("add-text");
-    const p = parseLine(inp.value.trim(), { cat: catSel.value, size: addSize, today: $("add-today").checked, repeat: $("add-repeat").value, due: $("add-due").value });
-    const t = addTask(p.text, p.cat, p.size, p.today, p.repeat, p.due);
+    const p = parseLine(inp.value.trim(), { cat: catSel.value, size: addSize, today: $("add-today").checked, repeat: $("add-repeat").value, due: $("add-due").value, later: $("add-later").checked });
+    const t = addTask(p.text, p.cat, p.size, p.today, p.repeat, p.due, p.later);
     $("add-due").value = ""; updateAddHint();
     if (!t) return;
     inp.value = "";
@@ -1390,6 +1422,7 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
   function updateAddHint() {
     const bits = [CATS[catSel.value].label, SIZES[addSize].label];
     if ($("add-today").checked) bits.push("para hoy");
+    if ($("add-later").checked) bits.push("más adelante");
     if ($("add-repeat").value) bits.push(REPEATS[$("add-repeat").value]);
     if ($("add-due").value) bits.push("para el " + keyToDate($("add-due").value).toLocaleDateString("es", { day: "numeric", month: "short" }));
     $("add-text").placeholder = `Nueva tarea · ${bits.join(" · ")}`;
@@ -1399,7 +1432,7 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
     $("add-opts").hidden = !open;
     $("add-opts-btn").setAttribute("aria-expanded", open ? "true" : "false");
   });
-  ["add-cat", "add-today", "add-repeat", "add-due"].forEach(id => $(id).addEventListener("change", updateAddHint));
+  ["add-cat", "add-today", "add-later", "add-repeat", "add-due"].forEach(id => $(id).addEventListener("change", updateAddHint));
   $("add-size").addEventListener("click", () => setTimeout(updateAddHint, 0));
 
   $("tabs").addEventListener("click", (e) => {
@@ -1407,7 +1440,7 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
     tab = b.dataset.tab; spotlight = null; render();
   });
 
-  // Etiquetas opcionales en cada línea: #categoria  @rapida|@mediana|@grande  !hoy  !diaria  !cada2  !semanal
+  // Etiquetas opcionales en cada línea: #categoria  @rapida|@mediana|@grande  !hoy  !despues  !diaria  !cada2  !semanal
   const fold = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   function parseLine(line, defaults) {
     const out = { text: line, cat: catSel.value, size: "m", today: false, repeat: "", ...(defaults || {}) };
@@ -1421,6 +1454,7 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
         if (size) { out.size = size; return ""; }
       } else {
         if (w === "hoy") { out.today = true; return ""; }
+        if (w === "despues" || w === "luego" || w === "masadelante") { out.later = true; return ""; }
         if (w === "diaria" || w === "diario") { out.repeat = "daily"; return ""; }
         if (w === "semanal") { out.repeat = "weekly"; return ""; }
         if (w === "cada2" || w === "cada2dias") { out.repeat = "every2"; return ""; }
@@ -1442,7 +1476,7 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
   $("dump-add").addEventListener("click", () => {
     const lines = $("dump-text").value.split(/\n+/).map(s => s.replace(/^[\s\-*•·\d.)]+/, "").trim()).filter(Boolean);
     if (!lines.length) { toast("Escribí al menos una cosa, una por línea.", ""); return; }
-    lines.forEach(l => { const p = parseLine(l); addTask(p.text, p.cat, p.size, p.today, p.repeat, p.due); });
+    lines.forEach(l => { const p = parseLine(l); addTask(p.text, p.cat, p.size, p.today, p.repeat, p.due, p.later); });
     $("dump-text").value = "";
     if (lines.length >= 5) unlock("dump");
     tab = "all";
@@ -1475,7 +1509,8 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
   });
 
   $("where-start").addEventListener("click", () => {
-    const pending = state.tasks.filter(isPending);
+    const allPending = state.tasks.filter(isPending);
+    const pending = allPending.filter(t => isNow(t) || (t.due && dueDiff(t) <= 0) || t.today).length ? allPending.filter(t => isNow(t) || (t.due && dueDiff(t) <= 0) || t.today) : allPending;
     if (!pending.length) { toast(state.tasks.length ? "¡No queda nada! Descansá." : "Primero vaciá tu cabeza: escribí todo en el panel «Vaciar la cabeza».", ""); return; }
     const urgent = pending.filter(t => t.due && dueDiff(t) <= 0);
     const pool = urgent.length ? urgent : pending.filter(isToday);
