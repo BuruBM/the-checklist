@@ -25,3 +25,12 @@ Es un sitio estático (GitHub Pages): `index.html`, `manifest.webmanifest`, `sw.
 
 Los cambios sin conexión se guardan en el dispositivo y se suben al volver; si dos dispositivos
 cambiaron a la vez, se combinan (tareas, puntos, logros y premios) en vez de pisarse.
+
+## Recordatorio diario (notificaciones)
+
+1. **Edge Function**: Supabase → Edge Functions → *Deploy a new function* → *Via editor*, nombre `daily-reminder`,
+   pegar [`supabase/functions/daily-reminder/index.ts`](supabase/functions/daily-reminder/index.ts) y desplegar.
+   En los detalles de la función, desactivar **Verify JWT** (la función valida por su cuenta).
+2. **Secrets** (Edge Functions → Secrets): `VAPID_PUBLIC_KEY` (la misma de `config.js`), `VAPID_PRIVATE_KEY`, `CRON_SECRET`.
+3. **SQL**: ejecutar [`supabase/notifications.sql`](supabase/notifications.sql) poniendo el valor de `CRON_SECRET`.
+4. En la app: **Tus datos → Recordatorio diario → Activar** (en cada dispositivo) y **Probar ahora**.

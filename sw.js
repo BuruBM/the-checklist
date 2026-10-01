@@ -1,6 +1,6 @@
 // Jardín de pendientes: funciona sin conexión.
 // La página se busca primero en la red (para recibir mejoras) y, sin conexión, sale de la caché.
-const CACHE = "jardin-v7";
+const CACHE = "jardin-v8";
 const SHELL = ["./", "index.html", "config.js", "vendor/supabase-2.117.1.js", "manifest.webmanifest", "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {
@@ -47,5 +47,28 @@ self.addEventListener("fetch", (e) => {
         return hit || net;
       })
     )
+  );
+});
+
+// Recordatorio diario: llega desde Supabase y se muestra como notificación.
+self.addEventListener("push", (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data ? e.data.text() : "" }; }
+  e.waitUntil(self.registration.showNotification(d.title || "Jardín de pendientes", {
+    body: d.body || "Mira lo que tienes para hoy.",
+    icon: "icons/icon-192.png",
+    tag: d.tag || "jardin",
+    renotify: true,
+    data: { url: d.url || "./" },
+  }));
+});
+
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  e.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      for (const c of list) if ("focus" in c) return c.focus();
+      return self.clients.openWindow((e.notification.data && e.notification.data.url) || "./");
+    })
   );
 });

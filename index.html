@@ -344,6 +344,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
 .data-status::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--leaf); flex: none; }
 .data-note { margin: 0; font-size: 13px; color: var(--ink-soft); }
 .data-note:empty { display: none; }
+.remind { display: grid; gap: 6px; padding-top: 10px; border-top: 1px dashed var(--line); }
 .account { display: grid; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 .account > div, .acc-form { display: grid; gap: 8px; }
 .acc-form input { border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; background: var(--ground); min-width: 0; width: 100%; }
@@ -496,6 +497,17 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
             <div class="row">
               <button class="btn small" id="acc-sync" type="button">Sincronizar ahora</button>
               <button class="btn small" id="acc-out" type="button">Cerrar sesión</button>
+            </div>
+            <div class="remind" id="remind" hidden>
+              <span class="flabel">Recordatorio diario</span>
+              <p class="data-note">Te llega una notificación con las tareas de «Hoy».</p>
+              <div class="row">
+                <label class="toggle">A las <select id="remind-hour" aria-label="Hora del recordatorio"></select></label>
+                <button class="btn primary small" id="remind-on" type="button">Activar</button>
+                <button class="btn small" id="remind-test" type="button" hidden>Probar ahora</button>
+                <button class="btn small" id="remind-off" type="button" hidden>Desactivar</button>
+              </div>
+              <p class="data-note" id="remind-msg" role="status"></p>
             </div>
           </div>
           <form id="acc-form" class="acc-form" autocomplete="on" hidden>
@@ -1677,6 +1689,7 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
     $("acc-in").hidden = !user;
     $("acc-form").hidden = !!user;
     $("data-status").hidden = !!user;
+    renderRemind();
     if (user) {
       $("acc-who").textContent = `Sincronizado como ${user.email}`;
       const t = meta.syncedAt ? new Date(meta.syncedAt) : null;
@@ -1741,6 +1754,94 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
     toast("Sesión cerrada. Tus datos siguen guardados en este teléfono.", "");
   });
   $("acc-sync").addEventListener("click", () => { if (user) pull(); });
+
+  /* ---------- recordatorio diario (Web Push vía Supabase) ---------- */
+  const REMIND_KEY = "jardin-remind";
+  const pushSupported = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window && !!CFG.vapidPublicKey;
+  const remindMsg = (t) => { $("remind-msg").textContent = t; };
+  const remindSaved = () => { try { return JSON.parse(localStorage.getItem(REMIND_KEY)) || null; } catch { return null; } };
+  const keyBytes = (s) => { const b = atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)); return Uint8Array.from(b, c => c.charCodeAt(0)); };
+  for (let h = 6; h <= 23; h++) $("remind-hour").append(el("option", { value: String(h), text: `${h}:00` }));
+  $("remind-hour").value = String((remindSaved() || {}).hour || 9);
+
+  async function renderRemind() {
+    const box = $("remind");
+    if (!sb || !user) { box.hidden = true; return; }
+    box.hidden = false;
+    if (!pushSupported()) {
+      ["remind-on", "remind-test", "remind-off"].forEach(id => $(id).hidden = true);
+      $("remind-hour").disabled = true;
+      remindMsg(/iphone|ipad/i.test(navigator.userAgent) ? "En iPhone primero instala la app en la pantalla de inicio y ábrela desde el ícono." : "Este navegador no permite notificaciones.");
+      return;
+    }
+    let sub = null;
+    try { const reg = await navigator.serviceWorker.getRegistration(); sub = reg ? await reg.pushManager.getSubscription() : null; } catch {}
+    const on = !!sub && !!remindSaved() && Notification.permission === "granted";
+    $("remind-on").hidden = on; $("remind-test").hidden = !on; $("remind-off").hidden = !on;
+    if (on && !$("remind-msg").textContent) remindMsg(`Activado: todos los días a las ${remindSaved().hour}:00 en este dispositivo.`);
+  }
+
+  async function saveSub(sub) {
+    const j = sub.toJSON();
+    const hour = Number($("remind-hour").value);
+    const { error } = await sb.from("push_subs").upsert({
+      endpoint: j.endpoint, user_id: user.id, p256dh: j.keys.p256dh, auth: j.keys.auth,
+      hour, tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Argentina/Buenos_Aires", enabled: true,
+    }, { onConflict: "endpoint" });
+    if (error) throw error;
+    try { localStorage.setItem(REMIND_KEY, JSON.stringify({ hour })); } catch {}
+    return hour;
+  }
+
+  $("remind-on").addEventListener("click", async () => {
+    if (!pushSupported() || !user) return;
+    remindMsg("Activando…");
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") { remindMsg("Sin permiso para notificaciones. Actívalo en los ajustes del teléfono para esta app y vuelve a intentar."); return; }
+      const reg = await navigator.serviceWorker.ready;
+      const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(CFG.vapidPublicKey) });
+      const hour = await saveSub(sub);
+      remindMsg(`¡Listo! Todos los días a las ${hour}:00 te llega lo de hoy. Toca «Probar ahora» para ver cómo se ve.`);
+      chime(3);
+    } catch (e) {
+      remindMsg("No se pudo activar: " + ((e && e.message) || "error") + ". ¿Ya creaste la tabla de recordatorios en Supabase?");
+    }
+    renderRemind();
+  });
+  $("remind-hour").addEventListener("change", async () => {
+    if (!remindSaved() || !user) return;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) { const h = await saveSub(sub); remindMsg(`Cambiado: ahora a las ${h}:00.`); }
+    } catch (e) { remindMsg("No se pudo cambiar la hora: " + ((e && e.message) || "error")); }
+  });
+  $("remind-off").addEventListener("click", async () => {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) { await sb.from("push_subs").delete().eq("endpoint", sub.endpoint); await sub.unsubscribe(); }
+    } catch {}
+    try { localStorage.removeItem(REMIND_KEY); } catch {}
+    remindMsg("Recordatorio desactivado en este dispositivo.");
+    renderRemind();
+  });
+  $("remind-test").addEventListener("click", async () => {
+    remindMsg("Enviando…");
+    try {
+      if (meta.dirty) await push(); // que la nube tenga lo último antes de armar el mensaje
+      const { data } = await sb.auth.getSession();
+      const res = await fetch(`${CFG.supabaseUrl}/functions/v1/daily-reminder`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: CFG.supabaseKey, Authorization: `Bearer ${data.session.access_token}` },
+        body: JSON.stringify({ test: true }),
+      });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) remindMsg(`No se pudo enviar (${res.status}). ${out.error || "¿Ya está creada la función daily-reminder?"}`);
+      else remindMsg(out.sent ? "Enviada. Debería llegarte en unos segundos." : "La función respondió, pero no encontró este dispositivo. Desactiva y vuelve a activar.");
+    } catch (e) { remindMsg("No se pudo contactar a Supabase: " + ((e && e.message) || "error")); }
+  });
   $("sync").addEventListener("click", () => $("data-panel").scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" }));
 
   /* ================= boot ================= */
