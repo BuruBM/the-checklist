@@ -117,7 +117,7 @@ export function buildMessage(state: { tasks?: Task[] } | null, tz: string, now =
   if (!list.length) {
     return {
       title: "🌸 Buen día",
-      body: pendingCount ? "Hoy no tienes nada elegido. Entra y marca 2 o 3 cosas para hoy." : "No tienes nada pendiente. Disfruta tu jardín.",
+      body: pendingCount ? "Hoy no tenés nada elegido. Entrá y marcá 2 o 3 cosas para hoy." : "No tenés nada pendiente. Disfrutá tu jardín.",
     };
   }
   const names = list.slice(0, 3).map((t) => t.text);
