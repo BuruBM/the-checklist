@@ -515,13 +515,17 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
               <button class="btn small" id="acc-out" type="button">Cerrar sesión</button>
             </div>
             <div class="remind" id="remind" hidden>
-              <span class="flabel">Recordatorio diario</span>
-              <p class="data-note">Te llega una notificación con las tareas de «Hoy».</p>
+              <span class="flabel">Avisos</span>
+              <p class="data-note">A la mañana, lo más urgente de hoy. Los domingos, lo que quedó vencido.</p>
               <div class="row">
-                <label class="toggle">A las <select id="remind-hour" aria-label="Hora del recordatorio"></select></label>
+                <label class="toggle">Mañana a las <select id="remind-hour" aria-label="Hora del resumen de la mañana"></select></label>
                 <button class="btn primary small" id="remind-on" type="button">Activar</button>
                 <button class="btn small" id="remind-test" type="button" hidden>Probar ahora</button>
                 <button class="btn small" id="remind-off" type="button" hidden>Desactivar</button>
+              </div>
+              <div class="row remind-extra" id="remind-extra" hidden>
+                <label class="toggle">Noche <select id="remind-evening" aria-label="Resumen de la noche"></select></label>
+                <label class="toggle"><input type="checkbox" id="remind-weekly" checked> Repaso de vencidas los domingos</label>
               </div>
               <p class="data-note" id="remind-msg" role="status"></p>
             </div>
@@ -664,6 +668,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       repeat: ["daily", "every2", "weekly"].includes(t.repeat) ? t.repeat : "", nextDue: Number(t.nextDue) || 0,
       parentId: t.parentId ? String(t.parentId) : "",
       due: /^\d{4}-\d{2}-\d{2}$/.test(t.due || "") ? t.due : "",
+      notifyAt: t.repeat && /^\d{2}:\d{2}$/.test(t.notifyAt || "") ? t.notifyAt : "",
       goal: typeof t.goal === "string" ? t.goal : (legacy && !t.later && !t.repeat && !t.parentId ? "g-legacy" : ""),
     }));
     b.rewards = (Array.isArray(s.rewards) ? s.rewards : []).filter(r => r && typeof r.text === "string")
@@ -951,7 +956,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       el("span", { class: "cat" }, el("i", { class: "dot", style: `background:${c.color}` }), c.label),
       el("span", { title: SIZES[t.size].label }, el("span", { class: "seeds", text: SIZES[t.size].seeds }), " " + SIZES[t.size].label),
       el("span", { class: "pts num", text: t.done ? `+${t.earned || SIZES[t.size].pts} pts` : `${SIZES[t.size].pts} pts` }),
-      t.repeat ? el("span", { class: "rep", text: `↻ ${REPEATS[t.repeat]}` }) : null,
+      t.repeat ? el("span", { class: "rep", text: `↻ ${REPEATS[t.repeat]}` + (t.notifyAt ? ` · 🔔 ${t.notifyAt}` : "") }) : null,
       t.goal && goalFilter !== t.goal && goalById(t.goal) ? el("span", { class: "goal-chip", text: `${goalById(t.goal).emoji} ${goalById(t.goal).title}` }) : null,
     );
     const di = dueInfo(t);
@@ -1414,8 +1419,12 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     rep.value = t.repeat || "";
     const dueRow = el("div", { class: "field" }, el("span", { class: "flabel", text: "¿Para cuándo?" }),
       el("div", { class: "row" }, due, quick("Hoy", 0), quick("Mañana", 1), quick("En 1 semana", 7), quick("Sin fecha", null)));
-    const syncRep = () => { dueRow.hidden = !!rep.value; };
-    rep.addEventListener("change", syncRep); syncRep();
+    const bell = el("input", { type: "time", id: "ed-notify", "aria-label": "Hora del aviso" }); bell.value = t.notifyAt || "";
+    const bellRow = el("div", { class: "field" }, el("span", { class: "flabel", text: "🔔 Avisarme a las" }),
+      el("div", { class: "row" }, bell, el("button", { class: "chip", type: "button", text: "Sin aviso", onclick: () => { bell.value = ""; } })),
+      el("p", { class: "data-note", text: "Te llega a esa hora si todavía no la marcaste (con el recordatorio activado)." }));
+    const syncRep = () => { dueRow.hidden = !!rep.value; bellRow.hidden = !rep.value; };
+    rep.addEventListener("change", syncRep);
     const save = () => {
       const text = txt.value.trim();
       if (!text) { txt.focus(); return; }
@@ -1424,6 +1433,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
         t.today = today.checked;
         t.goal = rep.value ? "" : goalSel.value;
         if (rep.value !== t.repeat) { t.repeat = rep.value; t.nextDue = 0; }
+        t.notifyAt = t.repeat ? bell.value : "";
         t.due = t.repeat ? "" : due.value;
       }
       persist(); render(); close();
@@ -1436,10 +1446,12 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       el("div", { class: "field" }, el("span", { class: "flabel", text: "Categoría y tamaño" }), el("div", { class: "row" }, cat, seg)),
       t.done ? null : dueRow,
       t.done ? null : el("div", { class: "row" }, el("label", { class: "toggle" }, today, " Para hoy"), rep),
+      t.done ? null : bellRow,
       t.done || !state.goals.length ? null : el("div", { class: "field" }, el("span", { class: "flabel", text: "Meta" }), goalSel),
       el("div", { class: "row sheet-actions" }, delBtn, el("button", { class: "btn primary", type: "submit", text: "Guardar" })));
     o.append(card);
     document.body.append(o);
+    syncRep();
     txt.focus(); txt.setSelectionRange(txt.value.length, txt.value.length);
   }
 
@@ -2130,6 +2142,10 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
   const keyBytes = (s) => { const b = atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)); return Uint8Array.from(b, c => c.charCodeAt(0)); };
   for (let h = 6; h <= 23; h++) $("remind-hour").append(el("option", { value: String(h), text: `${h}:00` }));
   $("remind-hour").value = String((remindSaved() || {}).hour || 9);
+  $("remind-evening").append(el("option", { value: "", text: "Apagado" }));
+  for (let h = 18; h <= 23; h++) $("remind-evening").append(el("option", { value: String(h), text: `${h}:00` }));
+  $("remind-evening").value = (remindSaved() || {}).evening != null ? String(remindSaved().evening) : "";
+  $("remind-weekly").checked = (remindSaved() || {}).weekly !== false;
 
   async function renderRemind() {
     const box = $("remind");
@@ -2144,19 +2160,26 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
     let sub = null;
     try { const reg = await navigator.serviceWorker.getRegistration(); sub = reg ? await reg.pushManager.getSubscription() : null; } catch {}
     const on = !!sub && !!remindSaved() && Notification.permission === "granted";
-    $("remind-on").hidden = on; $("remind-test").hidden = !on; $("remind-off").hidden = !on;
-    if (on && !$("remind-msg").textContent) remindMsg(`Activado: todos los días a las ${remindSaved().hour}:00 en este dispositivo.`);
+    $("remind-on").hidden = on; $("remind-test").hidden = !on; $("remind-off").hidden = !on; $("remind-extra").hidden = !on;
+    if (on && !$("remind-msg").textContent) remindMsg(`Activado en este dispositivo: mañana a las ${remindSaved().hour}:00.`);
   }
 
   async function saveSub(sub) {
     const j = sub.toJSON();
     const hour = Number($("remind-hour").value);
-    const { error } = await sb.from("push_subs").upsert({
-      endpoint: j.endpoint, user_id: user.id, p256dh: j.keys.p256dh, auth: j.keys.auth,
-      hour, tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Argentina/Buenos_Aires", enabled: true,
-    }, { onConflict: "endpoint" });
+    const evening = $("remind-evening").value === "" ? null : Number($("remind-evening").value);
+    const weekly = $("remind-weekly").checked;
+    const row = { endpoint: j.endpoint, user_id: user.id, p256dh: j.keys.p256dh, auth: j.keys.auth,
+      hour, tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Argentina/Buenos_Aires", enabled: true, evening_hour: evening, weekly };
+    let { error } = await sb.from("push_subs").upsert(row, { onConflict: "endpoint" });
+    if (error && /evening_hour|weekly|column/i.test(error.message || "")) {
+      // la base todavía no tiene las columnas nuevas: guardar lo básico y avisar
+      delete row.evening_hour; delete row.weekly;
+      ({ error } = await sb.from("push_subs").upsert(row, { onConflict: "endpoint" }));
+      if (!error) remindMsg("Guardado lo básico. Para la noche y el repaso semanal falta actualizar la tabla en Supabase.");
+    }
     if (error) throw error;
-    try { localStorage.setItem(REMIND_KEY, JSON.stringify({ hour })); } catch {}
+    try { localStorage.setItem(REMIND_KEY, JSON.stringify({ hour, evening, weekly })); } catch {}
     return hour;
   }
 
@@ -2176,6 +2199,14 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
     }
     renderRemind();
   });
+  ["remind-evening", "remind-weekly"].forEach(id => $(id).addEventListener("change", async () => {
+    if (!remindSaved() || !user) return;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) { await saveSub(sub); if (!/falta actualizar/.test($("remind-msg").textContent)) remindMsg("Avisos actualizados."); }
+    } catch (e) { remindMsg("No se pudo guardar: " + ((e && e.message) || "error")); }
+  }));
   $("remind-hour").addEventListener("change", async () => {
     if (!remindSaved() || !user) return;
     try {

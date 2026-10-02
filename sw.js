@@ -1,6 +1,6 @@
 // Jardín de pendientes: funciona sin conexión.
 // La página se busca primero en la red (para recibir mejoras) y, sin conexión, sale de la caché.
-const CACHE = "jardin-v12";
+const CACHE = "jardin-v13";
 const SHELL = ["./", "index.html", "config.js", "vendor/supabase-2.117.1.js", "manifest.webmanifest", "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {
@@ -55,7 +55,7 @@ self.addEventListener("push", (e) => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data ? e.data.text() : "" }; }
   e.waitUntil(self.registration.showNotification(d.title || "Jardín de pendientes", {
-    body: d.body || "Mira lo que tienes para hoy.",
+    body: typeof d.body === "string" ? d.body : "",
     icon: "icons/icon-192.png",
     tag: d.tag || "jardin",
     renotify: true,

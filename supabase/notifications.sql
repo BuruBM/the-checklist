@@ -22,6 +22,11 @@ drop policy if exists "push_subs: propios" on public.push_subs;
 create policy "push_subs: propios" on public.push_subs
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
+-- Avisos nuevos: repaso semanal, resumen de la noche y repetidas con horario propio.
+alter table public.push_subs add column if not exists sent jsonb not null default '{}'::jsonb;
+alter table public.push_subs add column if not exists weekly boolean not null default true;
+alter table public.push_subs add column if not exists evening_hour int check (evening_hour between 0 and 23);
+
 -- Revisar cada 15 minutos a quién le toca el recordatorio.
 create extension if not exists pg_cron;
 create extension if not exists pg_net;

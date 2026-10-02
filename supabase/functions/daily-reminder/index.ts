@@ -1,7 +1,10 @@
 // Jardín de pendientes · recordatorio diario
 //
-// Supabase lo llama cada 15 minutos (pg_cron). A cada dispositivo suscripto le manda,
-// a la hora que eligió, una notificación con las tareas de "Hoy".
+// Supabase lo llama cada 15 minutos (pg_cron). A cada dispositivo suscripto le manda:
+//   · a la hora elegida, los nombres de lo más urgente de hoy (como mucho 5);
+//   · los domingos a esa hora, el repaso de lo vencido;
+//   · a la noche (opcional), lo que quedó pendiente de hoy;
+//   · las tareas repetidas con 🔔, cada una a su horario.
 // También acepta {test: true} desde la app (con la sesión del usuario) para probar.
 //
 // Sin dependencias: Web Push (RFC 8291 + VAPID RFC 8292) con WebCrypto y la API REST de Supabase.
@@ -93,39 +96,75 @@ export async function sendPush(sub: { endpoint: string; p256dh: string; auth: st
   return res.status;
 }
 
-// ---------------------------------------------------------------- tareas de hoy (misma lógica que la app)
-type Task = { text: string; done?: boolean; today?: boolean; repeat?: string; nextDue?: number; due?: string };
+// ---------------------------------------------------------------- qué avisar (misma lógica que la app)
+type Task = { id?: string; text: string; done?: boolean; today?: boolean; repeat?: string; nextDue?: number; due?: string; goal?: string; size?: string; notifyAt?: string };
+type Goal = { id: string; date?: string };
+type State = { tasks?: Task[]; goals?: Goal[] } | null;
+type Msg = { title: string; body: string; tag: string };
+const MAX_LINES = 5;
+const SIZE_RANK: Record<string, number> = { s: 0, m: 1, l: 2 };
 
 export function localParts(tz: string, ts: number) {
-  const f = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" });
+  const f = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", weekday: "short", hourCycle: "h23" });
   const p = Object.fromEntries(f.formatToParts(new Date(ts)).map((x) => [x.type, x.value]));
-  return { day: `${p.year}-${p.month}-${p.day}`, hour: Number(p.hour) };
+  return { day: `${p.year}-${p.month}-${p.day}`, hour: Number(p.hour), minute: Number(p.minute), weekday: String(p.weekday) };
+}
+const logicalDay = (tz: string, now: number) => localParts(tz, now - DAY_START_HOUR * 3600000).day;
+const lines = (list: Task[]) => list.slice(0, MAX_LINES).map((t) => `• ${t.text}`).join("\n");
+
+function pieces(state: State, tz: string, now: number) {
+  const todayKey = logicalDay(tz, now);
+  const tasks = state && Array.isArray(state.tasks) ? state.tasks : [];
+  const goals = state && Array.isArray(state.goals) ? state.goals : [];
+  const goalDate = (t: Task) => (goals.find((g) => g.id === t.goal) || {}).date || "9999";
+  const pending = tasks.filter((t) => !t.done && !t.repeat);
+  // Elegidas para hoy: con estrella o que vencen hoy (las vencidas van al repaso semanal; las repetidas, con su propio horario).
+  const today = pending.filter((t) => t.today || t.due === todayKey).sort((a, b) =>
+    Number(b.due === todayKey) - Number(a.due === todayKey) || goalDate(a).localeCompare(goalDate(b)) || (SIZE_RANK[a.size || "m"] - SIZE_RANK[b.size || "m"]));
+  return { todayKey, tasks, goals, pending, today, goalDate };
 }
 
-export function todayTasks(state: { tasks?: Task[] } | null, tz: string, now = Date.now()) {
-  const todayKey = localParts(tz, now - DAY_START_HOUR * 3600000).day;
-  const tasks = (state && Array.isArray(state.tasks)) ? state.tasks : [];
-  const pending = tasks.filter((t) => !t.done && !(t.repeat && (t.nextDue || 0) > now));
-  const list = pending.filter((t) => t.today || !!t.repeat || (!!t.due && t.due <= todayKey));
-  list.sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999") || Number(!!b.today) - Number(!!a.today));
-  const overdue = list.filter((t) => t.due && t.due < todayKey).length;
-  return { list, overdue, pendingCount: pending.length };
+// Mañana: los nombres de lo más urgente del día. Si no elegiste nada, 2 o 3 sugerencias de la meta más próxima.
+export function morningMessage(state: State, tz: string, now = Date.now()): Msg | null {
+  const { todayKey, pending, today, goals, goalDate } = pieces(state, tz, now);
+  if (today.length) return { title: "🌸 Hoy", body: lines(today), tag: "jardin-manana" };
+  const open = pending.filter((t) => !t.due || t.due >= todayKey);
+  if (!open.length) return null;
+  const nextGoal = goals.filter((g) => g.date && g.date >= todayKey && open.some((t) => t.goal === g.id)).sort((a, b) => (a.date || "").localeCompare(b.date || ""))[0];
+  const pool = (nextGoal ? open.filter((t) => t.goal === nextGoal.id) : open)
+    .sort((a, b) => (SIZE_RANK[a.size || "m"] - SIZE_RANK[b.size || "m"]) || goalDate(a).localeCompare(goalDate(b)));
+  return { title: "🌸 ¿Arrancamos con…?", body: lines(pool.slice(0, 3)), tag: "jardin-manana" };
 }
 
-export function buildMessage(state: { tasks?: Task[] } | null, tz: string, now = Date.now()) {
-  const { list, overdue, pendingCount } = todayTasks(state, tz, now);
-  if (!list.length) {
-    return {
-      title: "🌸 Buen día",
-      body: pendingCount ? "Hoy no tenés nada elegido. Entrá y marcá 2 o 3 cosas para hoy." : "No tenés nada pendiente. Disfrutá tu jardín.",
-    };
+// Noche (opcional): lo que quedó de lo elegido para hoy.
+export function eveningMessage(state: State, tz: string, now = Date.now()): Msg | null {
+  const { today } = pieces(state, tz, now);
+  return today.length ? { title: "🌙 Quedó pendiente", body: lines(today), tag: "jardin-noche" } : null;
+}
+
+// Domingo: repaso de las vencidas, de la más vieja a la más nueva.
+export function weeklyMessage(state: State, tz: string, now = Date.now()): Msg | null {
+  const { todayKey, pending } = pieces(state, tz, now);
+  const over = pending.filter((t) => t.due && t.due < todayKey).sort((a, b) => (a.due || "").localeCompare(b.due || ""));
+  if (!over.length) return null;
+  const fmt = (k: string) => { const [, m, d] = k.split("-").map(Number); return `${d}/${m}`; };
+  return { title: "↺ Sin resolver", body: over.slice(0, MAX_LINES).map((t) => `• ${t.text} · venció ${fmt(t.due as string)}`).join("\n"), tag: "jardin-semana" };
+}
+
+// Repetidas con 🔔: cada una a su horario, si todavía no está hecha hoy.
+export function taskAlarms(state: State, tz: string, now = Date.now()): Array<{ key: string; msg: Msg }> {
+  const { tasks } = pieces(state, tz, now);
+  const { hour, minute } = localParts(tz, now);
+  const mins = hour * 60 + minute;
+  const out: Array<{ key: string; msg: Msg }> = [];
+  for (const t of tasks) {
+    if (!t.repeat || !t.notifyAt || !/^\d{2}:\d{2}$/.test(t.notifyAt) || t.done) continue;
+    if ((t.nextDue || 0) > now) continue; // ya hecha en este período
+    const [h, m] = t.notifyAt.split(":").map(Number);
+    const at = h * 60 + m;
+    if (mins >= at && mins < at + 180) out.push({ key: `t:${t.id}`, msg: { title: `🔔 ${t.text}`, body: "", tag: `jardin-${t.id}` } });
   }
-  const names = list.slice(0, 3).map((t) => t.text);
-  const more = list.length > 3 ? ` y ${list.length - 3} más` : "";
-  return {
-    title: `🌸 Hoy: ${list.length} ${list.length === 1 ? "tarea" : "tareas"}` + (overdue ? ` (${overdue} vencida${overdue > 1 ? "s" : ""})` : ""),
-    body: names.join(" · ") + more,
-  };
+  return out;
 }
 
 // ---------------------------------------------------------------- servidor
@@ -135,6 +174,10 @@ const cors = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...cors, "Content-Type": "application/json" } });
+
+type Sub = { endpoint: string; user_id: string; p256dh: string; auth: string; hour: number; tz: string; last_sent_day: string | null;
+  sent?: Record<string, string>; evening_hour?: number | null; weekly?: boolean };
+const inWindow = (hour: number, from: number | null | undefined) => from !== null && from !== undefined && hour >= from && hour < from + 3;
 
 async function handler(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -163,38 +206,52 @@ async function handler(req: Request): Promise<Response> {
 
   const subsRes = await rest(onlyUser ? `push_subs?user_id=eq.${onlyUser}&select=*` : "push_subs?enabled=eq.true&select=*");
   if (!subsRes.ok) return json({ error: "No se pudo leer push_subs", detail: await subsRes.text() }, 500);
-  const subs: Array<{ endpoint: string; user_id: string; p256dh: string; auth: string; hour: number; tz: string; last_sent_day: string | null }> = await subsRes.json();
+  const subs: Sub[] = await subsRes.json();
+  if (!subs.length) return json({ sent: 0, checked: 0 });
 
-  const now = Date.now();
-  const due = subs.filter((s) => {
-    if (onlyUser) return true;
-    const tz = s.tz || "America/Argentina/Buenos_Aires";
-    const { day, hour } = localParts(tz, now);
-    return hour >= s.hour && hour < s.hour + 3 && s.last_sent_day !== day;
-  });
-  if (!due.length) return json({ sent: 0, checked: subs.length });
-
-  const users = [...new Set(due.map((s) => s.user_id))];
+  const users = [...new Set(subs.map((s) => s.user_id))];
   const boardsRes = await rest(`boards?user_id=in.(${users.join(",")})&select=user_id,state`);
-  const boards: Array<{ user_id: string; state: { tasks?: Task[] } }> = boardsRes.ok ? await boardsRes.json() : [];
+  const boards: Array<{ user_id: string; state: State }> = boardsRes.ok ? await boardsRes.json() : [];
   const stateOf = new Map(boards.map((b) => [b.user_id, b.state]));
 
+  const now = Date.now();
   let sent = 0;
-  const results: Array<{ status: number }> = [];
-  for (const s of due) {
+  const results: Array<{ key: string; status: number }> = [];
+  for (const s of subs) {
     const tz = s.tz || "America/Argentina/Buenos_Aires";
-    const msg = buildMessage(stateOf.get(s.user_id) || null, tz, now);
-    const payload = JSON.stringify({ ...msg, url: APP_URL, tag: "jardin-diario" });
-    let status = 0;
-    try { status = await sendPush(s, payload, vapid); } catch (_) { status = 0; }
-    results.push({ status });
-    const ep = encodeURIComponent(s.endpoint);
-    if (status === 404 || status === 410) {
-      await rest(`push_subs?endpoint=eq.${ep}`, { method: "DELETE" }); // el dispositivo ya no existe
-    } else if (status >= 200 && status < 300) {
-      sent++;
-      if (!onlyUser) await rest(`push_subs?endpoint=eq.${ep}`, { method: "PATCH", body: JSON.stringify({ last_sent_day: localParts(tz, now).day }) });
+    const state = stateOf.get(s.user_id) || null;
+    const { day, hour, weekday } = localParts(tz, now);
+    const modern = s.sent !== undefined; // columnas nuevas creadas (notifications.sql actualizado)
+    const done: Record<string, string> = modern ? { ...(s.sent || {}) } : { morning: s.last_sent_day || "" };
+    const todo: Array<{ key: string; msg: Msg | null }> = [];
+
+    if (onlyUser) {
+      todo.push({ key: "test", msg: morningMessage(state, tz, now) || { title: "🌸 Hoy", body: "No hay nada pendiente.", tag: "jardin-manana" } });
+    } else {
+      if (inWindow(hour, s.hour) && done.morning !== day) todo.push({ key: "morning", msg: morningMessage(state, tz, now) });
+      if (modern) {
+        if (weekday === "Sun" && s.weekly !== false && inWindow(hour, s.hour) && done.weekly !== day) todo.push({ key: "weekly", msg: weeklyMessage(state, tz, now) });
+        if (inWindow(hour, s.evening_hour) && done.evening !== day) todo.push({ key: "evening", msg: eveningMessage(state, tz, now) });
+        for (const a of taskAlarms(state, tz, now)) if (done[a.key] !== day) todo.push(a);
+      }
     }
+    if (!todo.length) continue;
+
+    let gone = false;
+    for (const { key, msg } of todo) {
+      done[key] = day; // aunque no haya nada que decir, ese aviso ya quedó resuelto por hoy
+      if (!msg) continue;
+      let status = 0;
+      try { status = await sendPush(s, JSON.stringify({ ...msg, url: APP_URL }), vapid); } catch (_) { status = 0; }
+      results.push({ key, status });
+      if (status === 404 || status === 410) { gone = true; break; }
+      if (status >= 200 && status < 300) sent++;
+    }
+    const ep = encodeURIComponent(s.endpoint);
+    if (gone) { await rest(`push_subs?endpoint=eq.${ep}`, { method: "DELETE" }); continue; } // el dispositivo ya no existe
+    if (onlyUser) continue;
+    const keep = Object.fromEntries(Object.entries(done).filter(([, d]) => d === day));
+    await rest(`push_subs?endpoint=eq.${ep}`, { method: "PATCH", body: JSON.stringify(modern ? { sent: keep, last_sent_day: done.morning || null } : { last_sent_day: done.morning || null }) });
   }
   return json({ sent, checked: subs.length, results });
 }

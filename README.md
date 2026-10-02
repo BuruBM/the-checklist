@@ -40,4 +40,6 @@ cambiaron a la vez, se combinan (tareas, puntos, logros y premios) en vez de pis
    En los detalles de la función, desactivar **Verify JWT** (la función valida por su cuenta).
 2. **Secrets** (Edge Functions → Secrets): `VAPID_PUBLIC_KEY` (la misma de `config.js`), `VAPID_PRIVATE_KEY`, `CRON_SECRET`.
 3. **SQL**: ejecutar [`supabase/notifications.sql`](supabase/notifications.sql) poniendo el valor de `CRON_SECRET`.
-4. En la app: **Tus datos → Recordatorio diario → Activar** (en cada dispositivo) y **Probar ahora**.
+4. En la app: **Tus datos → Avisos → Activar** (en cada dispositivo) y **Probar ahora**.
+
+Qué llega: a la mañana, los nombres de lo más urgente de hoy (máx. 5); los domingos, el repaso de lo vencido; a la noche (opcional), lo que quedó pendiente; y cada tarea repetida con 🔔 a su horario.
