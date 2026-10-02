@@ -112,8 +112,7 @@ body {
   .top > div { width: 100%; }
   .sync { position: absolute; top: -3px; right: 0; font-size: 11px; }
   .eyebrow { font-size: 11px; }
-  .goals { margin-top: 8px; gap: 6px; }
-  .goal-card { padding: 8px 12px; gap: 5px; }
+  .goals { margin-top: 8px; }
   .goal-when { font-size: 15px; }
   .wrap { gap: 14px; }
   .level { flex-basis: 100%; }
@@ -134,24 +133,32 @@ button { cursor: pointer; }
 .top h1 { font-size: clamp(30px, 5vw, 46px); font-weight: 800; letter-spacing: -.02em; line-height: 1; }
 .top h1 em { font-style: normal; color: var(--leaf); }
 .top .lede { color: var(--ink-soft); margin: 8px 0 0; max-width: 56ch; }
-.goals { display: grid; gap: 8px; margin-top: 12px; max-width: 560px; }
-.goal-card {
-  background: color-mix(in srgb, var(--c-viaje) 12%, var(--surface)); border: 1.5px solid transparent; border-radius: 16px;
-  padding: 10px 14px; display: grid; gap: 6px; cursor: pointer; text-align: left;
+.wrap > *, .top > div { min-width: 0; }
+.goals { display: flex; gap: 6px; margin-top: 10px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; max-width: 100%; }
+.goals::-webkit-scrollbar { display: none; }
+.goal-pill {
+  flex: none; position: relative; overflow: hidden; display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap;
+  border: 1.5px solid color-mix(in srgb, var(--c-viaje) 40%, transparent); background: var(--surface); color: var(--ink);
+  border-radius: 99px; padding: 5px 12px; font-size: 13.5px; font-weight: 600;
 }
-.goal-card.on { border-color: var(--c-viaje); box-shadow: var(--shadow); }
-.goal-card.past { background: color-mix(in srgb, var(--marigold) 20%, var(--surface)); }
-.goal-top { display: flex; align-items: center; gap: 8px; }
-.goal-name { font-weight: 700; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.goal-pill > * { position: relative; }
+.goal-pill .goal-fill { position: absolute; inset: 0 auto 0 0; background: color-mix(in srgb, var(--c-viaje) 22%, transparent); transition: width .5s ease; }
+.goal-pill b { color: var(--c-viaje); font-family: var(--display); font-weight: 700; }
+.goal-pill-name { max-width: 15ch; overflow: hidden; text-overflow: ellipsis; }
+.goal-pill.on { border-color: var(--c-viaje); box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-viaje) 25%, transparent); }
+.goal-pill.past { border-color: var(--marigold); }
+.goal-pill.past b { color: #B7791F; }
+.goal-pill.past .goal-fill { background: color-mix(in srgb, var(--marigold) 25%, transparent); }
+.goal-pill.plain { border-style: dashed; border-color: var(--line); color: var(--ink-soft); font-weight: 600; }
+.goal-pill.plain.on { background: var(--ink); color: var(--ground); border-style: solid; border-color: var(--ink); }
+.goal-info { display: grid; gap: 6px; padding: 10px 12px; border-radius: 14px; background: color-mix(in srgb, var(--c-viaje) 10%, var(--surface)); margin-bottom: 4px; }
+.goal-info-top { display: flex; align-items: center; gap: 8px; }
+.goal-info-top strong { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.goal-info .chip { padding: 3px 9px; }
 .goal-when { font-family: var(--display); color: var(--c-viaje); font-size: 17px; white-space: nowrap; }
-.goal-card.past .goal-when { color: #B7791F; }
-.goal-card .icon { width: 28px; height: 28px; margin: -4px -6px -4px 0; }
 .goal-bar { height: 6px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 10%, transparent); overflow: hidden; }
 .goal-bar i { display: block; height: 100%; background: var(--c-viaje); border-radius: 99px; transition: width .5s ease; }
-.goal-card.past .goal-bar i { background: var(--marigold); }
 .goal-note { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; color: var(--ink-soft); }
-.goal-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-.goal-actions .chip[aria-pressed="true"] { background: var(--ink); color: var(--ground); border-style: solid; border-color: var(--ink); }
 .goal-chip { color: var(--c-viaje); font-weight: 600; }
 .emoji-pick { display: flex; flex-wrap: wrap; gap: 6px; }
 .emoji-pick button { font-size: 20px; width: 42px; height: 42px; border-radius: 12px; border: 1px solid var(--line); background: var(--ground); padding: 0; }
@@ -1036,6 +1043,8 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     $("c-done").textContent = done.length;
     $("c-dates").textContent = pending.filter(t => t.due).length;
 
+    const info = goalInfoBar();
+    if (info) root.append(info);
     if (!state.tasks.length) {
       root.append(el("div", { class: "empty" }, el("strong", { text: "Tu lista está vacía (y eso está bien)." }),
         el("span", { text: "Usá «Vaciar la cabeza» para soltar todo de golpe, o escribí una tarea arriba." }),
@@ -1159,39 +1168,49 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     justPlanted = null;
   }
 
+  function goalSummary(g) {
+    const left = goalDays(g), st = goalStats(g);
+    const pct = st.total ? Math.round(st.done / st.total * 100) : 0;
+    let short, when, note;
+    if (left === null) { short = "—"; when = "sin fecha"; note = st.pend ? `${st.pend} por hacer` : "Todo listo"; }
+    else if (left > 1) { const per = Math.ceil(st.pend / Math.max(1, left - 1)); short = `${left}d`; when = `faltan ${left} días`; note = st.pend ? `${st.pend} por hacer · con ${per} por día llegás holgada` : "¡Ya tenés todo listo!"; }
+    else if (left === 1) { short = "mañana"; when = "¡es mañana!"; note = st.pend ? `${st.pend} por hacer · lo que no llegue, puede esperar` : "Todo listo. A disfrutar."; }
+    else if (left === 0) { short = "hoy"; when = "¡es hoy!"; note = "Disfrutá. Lo que hiciste ya está hecho."; }
+    else { short = "terminó"; when = "terminó"; note = "Tocá para cerrarla"; }
+    return { left, st, pct, short, when, note, past: left !== null && left < 0 };
+  }
+
+  // Encabezado: una línea de chips compactos (el relleno es el progreso). El detalle aparece al tocar uno.
   function renderGoals() {
     const box = $("goals"); box.replaceChildren();
     for (const g of sortedGoals()) {
-      const left = goalDays(g), st = goalStats(g);
-      const pct = st.total ? Math.round(st.done / st.total * 100) : 0;
-      let when, note;
-      if (left === null) { when = "sin fecha"; note = st.pend ? `${st.pend} por hacer` : "Todo listo"; }
-      else if (left > 1) { const per = Math.ceil(st.pend / Math.max(1, left - 1)); when = `faltan ${left} días`; note = st.pend ? `${st.pend} por hacer · con ${per} por día llegás holgada` : "¡Ya tenés todo listo!"; }
-      else if (left === 1) { when = "¡es mañana!"; note = st.pend ? `${st.pend} por hacer · lo que no llegue, puede esperar` : "Todo listo. A disfrutar."; }
-      else if (left === 0) { when = "¡es hoy!"; note = "Disfrutá. Lo que hiciste ya está hecho."; }
-      else { when = "terminó"; note = "Tocá para cerrarla"; }
-      const past = left !== null && left < 0;
-      const ed = el("button", { class: "icon", type: "button", "aria-label": `Editar meta ${g.title}`, title: "Editar meta" });
-      ed.append(svgIcon("edit"));
-      ed.addEventListener("click", (e) => { e.stopPropagation(); openGoalEditor(g); });
-      const card = el("div", { class: "goal-card" + (goalFilter === g.id ? " on" : "") + (past ? " past" : ""), role: "button", tabindex: "0",
-        "aria-pressed": goalFilter === g.id ? "true" : "false", title: past ? "Cerrar esta meta" : "Ver solo las tareas de esta meta" },
-        el("div", { class: "goal-top" }, el("span", { class: "goal-name", text: `${g.emoji} ${g.title}` }), el("b", { class: "goal-when num", text: when }), ed),
-        el("div", { class: "goal-bar" }, el("i", { style: `width:${pct}%` })),
-        el("div", { class: "goal-note" }, el("span", { text: note }), el("span", { class: "num", text: `${st.done}/${st.total} hechas` })));
-      const act = () => past ? openGoalClose(g) : setGoalFilter(goalFilter === g.id ? "" : g.id);
-      card.addEventListener("click", act);
-      card.addEventListener("keydown", (e) => { if (e.key === "Enter") act(); });
-      box.append(card);
+      const m = goalSummary(g);
+      const chip = el("button", { class: "goal-pill" + (goalFilter === g.id ? " on" : "") + (m.past ? " past" : ""), type: "button",
+        "aria-pressed": goalFilter === g.id ? "true" : "false", title: m.past ? "Cerrar esta meta" : `${g.title}: ${m.when} · ${m.st.done}/${m.st.total} hechas` },
+        el("i", { class: "goal-fill", style: `width:${m.pct}%` }),
+        el("span", { class: "goal-pill-name", text: `${g.emoji} ${g.title}` }), el("b", { class: "num", text: m.short }));
+      chip.addEventListener("click", () => m.past ? openGoalClose(g) : setGoalFilter(goalFilter === g.id ? "" : g.id));
+      box.append(chip);
     }
-    const actions = el("div", { class: "goal-actions" });
     const noGoal = state.tasks.filter(t => isPending(t) && !t.repeat && !t.goal).length;
     if (state.goals.length && noGoal) {
-      actions.append(el("button", { class: "chip", type: "button", "aria-pressed": goalFilter === "none" ? "true" : "false",
+      box.append(el("button", { class: "goal-pill plain" + (goalFilter === "none" ? " on" : ""), type: "button", "aria-pressed": goalFilter === "none" ? "true" : "false",
         text: `Sin meta · ${noGoal}`, onclick: () => setGoalFilter(goalFilter === "none" ? "" : "none") }));
     }
-    actions.append(el("button", { class: "chip", type: "button", text: state.goals.length ? "+ Nueva meta" : "+ Poner una meta con fecha (viaje, estudio, entrega…)", onclick: () => openGoalEditor(null) }));
-    box.append(actions);
+    box.append(el("button", { class: "goal-pill plain add", type: "button", "aria-label": "Nueva meta",
+      text: state.goals.length ? "+ Meta" : "+ Poner una meta con fecha (viaje, estudio, entrega…)", onclick: () => openGoalEditor(null) }));
+  }
+
+  // Franja arriba de la lista con el detalle de la meta elegida.
+  function goalInfoBar() {
+    const g = goalFilter && goalFilter !== "none" ? goalById(goalFilter) : null;
+    if (!g) return null;
+    const m = goalSummary(g);
+    const ed = el("button", { class: "chip", type: "button", text: "✏️ Editar", onclick: () => openGoalEditor(g) });
+    return el("div", { class: "goal-info" },
+      el("div", { class: "goal-info-top" }, el("strong", { text: `${g.emoji} ${g.title}` }), el("b", { class: "goal-when num", text: m.when }), ed),
+      el("div", { class: "goal-bar" }, el("i", { style: `width:${m.pct}%` })),
+      el("div", { class: "goal-note" }, el("span", { text: m.note }), el("span", { class: "num", text: `${m.st.done}/${m.st.total} hechas` })));
   }
 
   function setGoalFilter(id) {
