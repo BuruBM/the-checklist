@@ -1,6 +1,6 @@
 // Jardín de pendientes: funciona sin conexión.
 // La página se busca primero en la red (para recibir mejoras) y, sin conexión, sale de la caché.
-const CACHE = "jardin-v16";
+const CACHE = "jardin-v17";
 const SHELL = ["./", "index.html", "config.js", "vendor/supabase-2.117.1.js", "manifest.webmanifest", "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {
@@ -23,7 +23,8 @@ self.addEventListener("fetch", (e) => {
   // Página principal: red primero, caché si no hay conexión.
   if (req.mode === "navigate") {
     e.respondWith(
-      fetch(req)
+      // sin caché del navegador: siempre la versión recién publicada si hay red
+      fetch(req.url, { cache: "no-cache", credentials: "same-origin" })
         .then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put("./", copy)); return res; })
         .catch(() => caches.match("./").then((r) => r || caches.match("index.html")))
     );
@@ -32,7 +33,7 @@ self.addEventListener("fetch", (e) => {
 
   // Configuración: siempre la versión más nueva si hay red.
   if (url.origin === self.location.origin && url.pathname.endsWith("/config.js")) {
-    e.respondWith(fetch(req).then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); return res; }).catch(() => caches.match(req)));
+    e.respondWith(fetch(req.url, { cache: "no-cache" }).then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); return res; }).catch(() => caches.match(req)));
     return;
   }
 

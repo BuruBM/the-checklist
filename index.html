@@ -143,17 +143,17 @@ button { cursor: pointer; }
 .goal-hero {
   display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: 10px; row-gap: 8px;
   width: 100%; text-align: left; border: 1.5px solid transparent; border-radius: 20px; padding: 12px 16px; color: var(--ink);
-  background: linear-gradient(120deg, color-mix(in srgb, var(--c-viaje) 26%, var(--surface)), color-mix(in srgb, var(--c-viaje) 8%, var(--surface)) 70%, color-mix(in srgb, var(--marigold) 14%, var(--surface)));
+  background: color-mix(in srgb, var(--c-viaje) 14%, var(--surface));
 }
 .goal-hero.on { border-color: var(--c-viaje); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-viaje) 22%, transparent); }
-.goal-hero.past { background: linear-gradient(120deg, color-mix(in srgb, var(--marigold) 30%, var(--surface)), color-mix(in srgb, var(--marigold) 10%, var(--surface))); }
+.goal-hero.past { background: color-mix(in srgb, var(--marigold) 20%, var(--surface)); }
 .gh-emoji { font-size: 30px; line-height: 1; grid-row: span 2; }
 .gh-title { font-family: var(--display); font-weight: 800; font-size: 21px; letter-spacing: -.01em; overflow-wrap: anywhere; line-height: 1.1; }
 .gh-when { font-size: 14px; color: var(--ink-soft); white-space: nowrap; }
 .gh-when b { font-family: var(--display); font-weight: 800; font-size: 28px; color: var(--c-viaje); line-height: 1; letter-spacing: -.02em; }
 .goal-hero.past .gh-when b { color: #B7791F; font-size: 20px; }
 .gh-bar { height: 8px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 10%, transparent); overflow: hidden; }
-.gh-bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--c-viaje), color-mix(in srgb, var(--c-viaje) 55%, var(--marigold))); transition: width .6s ease; }
+.gh-bar i { display: block; height: 100%; border-radius: 99px; background: var(--c-viaje); transition: width .6s ease; }
 .goal-hero.past .gh-bar i { background: var(--marigold); }
 .gh-count { font-size: 12.5px; color: var(--ink-soft); font-weight: 600; white-space: nowrap; }
 .goal-pill {
@@ -816,6 +816,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
   const isPending = (t) => !t.done && !(t.repeat && t.nextDue > Date.now());
   // Metas: cada una con su fecha; cada tarea puede pertenecer a una (o a ninguna).
   const goalById = (id) => state.goals.find(g => g.id === id) || null;
+  const goalLabel = (g) => { const x = splitGoalTitle(g.title, g.emoji); return { emoji: x.emoji, title: x.title }; };
   const sortedGoals = () => [...state.goals].sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999"));
   const goalRank = (t) => { const g = t.goal && goalById(t.goal); return g && g.date ? g.date : "9999"; };
   function goalDays(g) {
@@ -993,7 +994,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       el("span", { title: SIZES[t.size].label }, el("span", { class: "seeds", text: SIZES[t.size].seeds }), " " + SIZES[t.size].label),
       el("span", { class: "pts num", text: t.done ? `+${t.earned || SIZES[t.size].pts} pts` : `${SIZES[t.size].pts} pts` }),
       t.repeat ? el("span", { class: "rep", text: `↻ ${REPEATS[t.repeat]}` + (t.notifyAt ? ` · 🔔 ${t.notifyAt}` : "") }) : null,
-      t.goal && goalFilter !== t.goal && goalById(t.goal) ? el("span", { class: "goal-chip", text: `${goalById(t.goal).emoji} ${goalById(t.goal).title}` }) : null,
+      t.goal && goalFilter !== t.goal && goalById(t.goal) ? el("span", { class: "goal-chip", text: `${goalLabel(goalById(t.goal)).emoji} ${goalLabel(goalById(t.goal)).title}` }) : null,
     );
     const di = dueInfo(t);
     if (di) meta.prepend(el("span", { class: "due " + di.cls, text: di.label }));
@@ -1038,7 +1039,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     if (goalFilter) {
       const g = goalById(goalFilter);
       const gb = el("button", { class: "catchip", type: "button", "aria-pressed": "true", title: "Dejar de filtrar por meta" },
-        goalFilter === "none" ? "Sin meta" : `${g ? g.emoji + " " + g.title : "Meta"}`, el("span", { class: "n", text: "✕" }));
+        goalFilter === "none" ? "Sin meta" : `${g ? goalLabel(g).emoji + " " + goalLabel(g).title : "Meta"}`, el("span", { class: "n", text: "✕" }));
       gb.addEventListener("click", () => setGoalFilter(""));
       box.append(gb);
     }
@@ -1221,7 +1222,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
         : el("span", { class: "gh-when" }, el("b", { text: m.short === "terminó" ? "terminó" : `¡${m.short}!` }));
       const card = el("button", { class: "goal-hero" + (goalFilter === hero.id ? " on" : "") + (m.past ? " past" : ""), type: "button",
         "aria-pressed": goalFilter === hero.id ? "true" : "false", title: m.past ? "Cerrar esta meta" : "Ver solo las tareas de esta meta" },
-        el("span", { class: "gh-emoji", text: hero.emoji }), el("span", { class: "gh-title", text: hero.title }), when,
+        el("span", { class: "gh-emoji", text: goalLabel(hero).emoji }), el("span", { class: "gh-title", text: goalLabel(hero).title }), when,
         el("span", { class: "gh-bar" }, el("i", { style: `width:${m.pct}%` })),
         el("span", { class: "gh-count num", text: m.past ? "tocá para cerrarla" : `${m.st.done}/${m.st.total}` }));
       card.addEventListener("click", () => m.past ? openGoalClose(hero) : setGoalFilter(goalFilter === hero.id ? "" : hero.id));
@@ -1234,7 +1235,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       const chip = el("button", { class: "goal-pill" + (goalFilter === g.id ? " on" : "") + (m.past ? " past" : ""), type: "button",
         "aria-pressed": goalFilter === g.id ? "true" : "false", title: m.past ? "Cerrar esta meta" : `${g.title}: ${m.when} · ${m.st.done}/${m.st.total} hechas` },
         el("i", { class: "goal-fill", style: `width:${m.pct}%` }),
-        el("span", { class: "goal-pill-name", text: `${g.emoji} ${g.title}` }), el("b", { class: "num", text: m.short }));
+        el("span", { class: "goal-pill-name", text: `${goalLabel(g).emoji} ${goalLabel(g).title}` }), el("b", { class: "num", text: m.short }));
       chip.addEventListener("click", () => m.past ? openGoalClose(g) : setGoalFilter(goalFilter === g.id ? "" : g.id));
       row.append(chip);
     }
@@ -1255,7 +1256,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     const m = goalSummary(g);
     const ed = el("button", { class: "chip", type: "button", text: "✏️ Editar", onclick: () => openGoalEditor(g) });
     return el("div", { class: "goal-info" },
-      el("div", { class: "goal-info-top" }, el("strong", { text: `${g.emoji} ${g.title}` }), el("b", { class: "goal-when num", text: m.when }), ed),
+      el("div", { class: "goal-info-top" }, el("strong", { text: `${goalLabel(g).emoji} ${goalLabel(g).title}` }), el("b", { class: "goal-when num", text: m.when }), ed),
       el("div", { class: "goal-bar" }, el("i", { style: `width:${m.pct}%` })),
       el("div", { class: "goal-note" }, el("span", { text: m.note }), el("span", { class: "num", text: `${m.st.done}/${m.st.total} hechas` })));
   }
@@ -1267,7 +1268,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     render();
     if (id) {
       const g = goalById(id);
-      toast(id === "none" ? "Mostrando las tareas sin meta." : `Mostrando solo ${g.emoji} ${g.title}. Lo que agregues va a esta meta.`, "");
+      toast(id === "none" ? "Mostrando las tareas sin meta." : `Mostrando solo ${goalLabel(g).emoji} ${goalLabel(g).title}. Lo que agregues va a esta meta.`, "");
     }
   }
 
@@ -1284,7 +1285,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     for (const id of ["add-goal", "dump-goal"]) {
       const sel = $(id); if (!sel) continue;
       sel.replaceChildren(el("option", { value: "", text: "Sin meta" }));
-      sortedGoals().filter(g => (goalDays(g) ?? 0) >= 0).forEach(g => sel.append(el("option", { value: g.id, text: `${g.emoji} ${g.title}` })));
+      sortedGoals().filter(g => (goalDays(g) ?? 0) >= 0).forEach(g => sel.append(el("option", { value: g.id, text: `${goalLabel(g).emoji} ${goalLabel(g).title}` })));
       sel.value = cur;
       sel.closest("label").hidden = !state.goals.length;
     }
@@ -1367,17 +1368,17 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     const o = el("div", { class: "overlay sheet-wrap", onclick: (e) => { if (e.target === o) close(); } });
     const close = () => o.remove();
     const dest = el("select", { id: "goal-leftover", "aria-label": "Qué hacer con lo que quedó" });
-    sortedGoals().filter(x => x !== g && (goalDays(x) ?? 0) >= 0).forEach(x => dest.append(el("option", { value: x.id, text: `Pasarlas a ${x.emoji} ${x.title}` })));
+    sortedGoals().filter(x => x !== g && (goalDays(x) ?? 0) >= 0).forEach(x => dest.append(el("option", { value: x.id, text: `Pasarlas a ${goalLabel(x).emoji} ${goalLabel(x).title}` })));
     dest.append(el("option", { value: "none", text: "Dejarlas sin meta" }), el("option", { value: "delete", text: "Borrarlas" }));
     dest.value = "none";
     const card = el("div", { class: "card sheet", role: "dialog", "aria-modal": "true", "aria-label": "Cerrar meta" },
-      el("div", { class: "sheet-head" }, el("h3", { text: `${g.emoji} ${g.title} terminó` }), el("button", { class: "icon", type: "button", "aria-label": "Cerrar", text: "✕", onclick: close })),
+      el("div", { class: "sheet-head" }, el("h3", { text: `${goalLabel(g).emoji} ${goalLabel(g).title} terminó` }), el("button", { class: "icon", type: "button", "aria-label": "Cerrar", text: "✕", onclick: close })),
       el("p", { text: st.total ? `Hiciste ${st.done} de ${st.total} tareas para esta meta. ${st.done >= st.total ? "¡Todas! 🎉" : "Todo lo que hiciste, suma."}` : "Esta meta no tenía tareas." }),
       st.pend ? el("div", { class: "field" }, el("span", { class: "flabel", text: st.pend === 1 ? "Quedó 1 sin hacer. ¿Qué hacemos con ella?" : `Quedaron ${st.pend} sin hacer. ¿Qué hacemos con ellas?` }), dest) : null,
       el("div", { class: "row sheet-actions" }, el("button", { class: "btn small", type: "button", text: "Ahora no", onclick: close }),
         el("button", { class: "btn primary", type: "button", text: "Cerrar meta", onclick: () => {
           close(); removeGoal(g, st.pend ? dest.value : "none");
-          toast(`${g.emoji} ${g.title}: cerrada. ¡A la próxima!`, "");
+          toast(`${goalLabel(g).emoji} ${goalLabel(g).title}: cerrada. ¡A la próxima!`, "");
           if (st.done) { burst(null, 100); chime(4); }
         } })));
     o.append(card);
@@ -1479,7 +1480,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     const today = el("input", { type: "checkbox", id: "ed-today" }); today.checked = !!t.today;
     const goalSel = el("select", { id: "ed-goal", "aria-label": "Meta" });
     goalSel.append(el("option", { value: "", text: "Sin meta" }));
-    sortedGoals().forEach(g => goalSel.append(el("option", { value: g.id, text: `${g.emoji} ${g.title}` })));
+    sortedGoals().forEach(g => goalSel.append(el("option", { value: g.id, text: `${goalLabel(g).emoji} ${goalLabel(g).title}` })));
     goalSel.value = t.goal && goalById(t.goal) ? t.goal : "";
     const rep = el("select", { id: "ed-repeat", "aria-label": "Repetir" });
     [["", "Una vez"], ["daily", "Cada día"], ["every2", "Cada 2 días"], ["weekly", "Cada semana"]].forEach(([v, l]) => rep.append(el("option", { value: v, text: l })));
@@ -1663,7 +1664,7 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
     const bits = [CATS[catSel.value].label, SIZES[addSize].label];
     if ($("add-today").checked) bits.push("para hoy");
     const dg = goalById($("add-goal").value);
-    if (dg) bits.push(`${dg.emoji} ${dg.title}`);
+    if (dg) bits.push(`${goalLabel(dg).emoji} ${goalLabel(dg).title}`);
     if ($("add-repeat").value) bits.push(REPEATS[$("add-repeat").value]);
     if ($("add-due").value) bits.push("para el " + keyToDate($("add-due").value).toLocaleDateString("es", { day: "numeric", month: "short" }));
     $("add-text").placeholder = `Nueva tarea · ${bits.join(" · ")}`;
@@ -2001,7 +2002,17 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
   function registerSW() {
     if (!("serviceWorker" in navigator) || !/^https?:$/.test(location.protocol)) return;
     if (window.claude) return; // dentro de Claude no hace falta
-    navigator.serviceWorker.register("sw.js").catch(() => {});
+    // Cuando llega una versión nueva de la app, recargar una vez para mostrarla sin tener que reabrir.
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!hadController || window.__reloadedForUpdate) return;
+      window.__reloadedForUpdate = true;
+      saveLocal();
+      location.reload();
+    });
+    navigator.serviceWorker.register("sw.js").then((reg) => {
+      document.addEventListener("visibilitychange", () => { if (!document.hidden) reg.update().catch(() => {}); });
+    }).catch(() => {});
   }
 
   /* ================= sincronización (Supabase) ================= */
