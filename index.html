@@ -111,9 +111,9 @@ body {
   .top > div { width: 100%; }
   .sync { position: absolute; top: -3px; right: 0; font-size: 11px; }
   .eyebrow { font-size: 11px; }
-  .goal { margin-top: 8px; }
-  .goal-pill { font-size: 13px; padding: 6px 12px; }
-  .goal-pill b { font-size: 16px; }
+  .goals { margin-top: 8px; gap: 6px; }
+  .goal-card { padding: 8px 12px; gap: 5px; }
+  .goal-when { font-size: 15px; }
   .wrap { gap: 14px; }
   .level { flex-basis: 100%; }
   .panel { padding: 14px; gap: 12px; }
@@ -133,16 +133,33 @@ button { cursor: pointer; }
 .top h1 { font-size: clamp(30px, 5vw, 46px); font-weight: 800; letter-spacing: -.02em; line-height: 1; }
 .top h1 em { font-style: normal; color: var(--leaf); }
 .top .lede { color: var(--ink-soft); margin: 8px 0 0; max-width: 56ch; }
-.goal { margin-top: 12px; }
-.goal-pill {
-  border: 0; border-radius: 99px; padding: 7px 14px; font-weight: 700; font-size: 14px;
-  background: color-mix(in srgb, var(--c-viaje) 16%, var(--surface)); color: var(--ink); display: inline-flex; gap: 8px; align-items: baseline; flex-wrap: wrap; text-align: left;
+.goals { display: grid; gap: 8px; margin-top: 12px; max-width: 560px; }
+.goal-card {
+  background: color-mix(in srgb, var(--c-viaje) 12%, var(--surface)); border: 1.5px solid transparent; border-radius: 16px;
+  padding: 10px 14px; display: grid; gap: 6px; cursor: pointer; text-align: left;
 }
-.goal-pill b { font-family: var(--display); font-size: 18px; color: var(--c-viaje); }
-.goal-pill span { font-weight: 500; color: var(--ink-soft); }
-.goal-pill.empty { background: transparent; border: 1px dashed var(--line); color: var(--ink-soft); font-weight: 600; }
-.goal-form { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.goal-form input { border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; background: var(--surface); min-width: 0; }
+.goal-card.on { border-color: var(--c-viaje); box-shadow: var(--shadow); }
+.goal-card.past { background: color-mix(in srgb, var(--marigold) 20%, var(--surface)); }
+.goal-top { display: flex; align-items: center; gap: 8px; }
+.goal-name { font-weight: 700; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.goal-when { font-family: var(--display); color: var(--c-viaje); font-size: 17px; white-space: nowrap; }
+.goal-card.past .goal-when { color: #B7791F; }
+.goal-card .icon { width: 28px; height: 28px; margin: -4px -6px -4px 0; }
+.goal-bar { height: 6px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 10%, transparent); overflow: hidden; }
+.goal-bar i { display: block; height: 100%; background: var(--c-viaje); border-radius: 99px; transition: width .5s ease; }
+.goal-card.past .goal-bar i { background: var(--marigold); }
+.goal-note { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; color: var(--ink-soft); }
+.goal-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.goal-actions .chip[aria-pressed="true"] { background: var(--ink); color: var(--ground); border-style: solid; border-color: var(--ink); }
+.goal-chip { color: var(--c-viaje); font-weight: 600; }
+.emoji-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.emoji-pick button { font-size: 20px; width: 42px; height: 42px; border-radius: 12px; border: 1px solid var(--line); background: var(--ground); padding: 0; }
+.emoji-pick button[aria-pressed="true"] { border-color: var(--c-viaje); background: color-mix(in srgb, var(--c-viaje) 18%, var(--surface)); }
+.sheet input[type="text"] { border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; background: var(--ground); width: 100%; }
+.sheet select { max-width: 100%; }
+.mic.rec { background: var(--danger); color: #fff; border-color: var(--danger); animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .72; } }
+.mic-note { font-style: italic; }
 .rep { color: var(--c-viaje); font-weight: 700; }
 .due { font-weight: 700; }
 .due.over { color: var(--danger); }
@@ -150,9 +167,7 @@ button { cursor: pointer; }
 .due.soon { color: var(--c-viaje); }
 .due.later { color: var(--ink-soft); }
 .group-title.over { color: var(--danger); }
-.group-title.later-title { color: var(--c-personal); margin-top: 14px; }
-.later-chip { color: var(--c-personal); font-weight: 600; }
-.later-toggle { font-weight: 500; }
+
 .tbody { cursor: pointer; border-radius: 8px; }
 .overlay.sheet-wrap { align-items: end; padding: 0; }
 .card.sheet {
@@ -391,14 +406,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     <div>
       <div class="eyebrow" id="today-label">Hoy</div>
       <h1>Jardín de <em>pendientes</em></h1>
-      <div class="goal" id="goal">
-        <button class="goal-pill" id="goal-pill" type="button"></button>
-        <form class="goal-form" id="goal-form" hidden>
-          <input type="text" id="goal-title" placeholder="¿Qué se viene? (ej: Viaje)" aria-label="Meta" maxlength="40">
-          <input type="date" id="goal-date" aria-label="Fecha">
-          <button class="btn primary small" type="submit">Listo</button>
-        </form>
-      </div>
+      <div class="goals" id="goals"></div>
       <p class="lede" id="lede">Cada tarea que terminás planta una flor. Sacá las cosas de tu cabeza, elegí una chiquita y empezá por ahí.</p>
     </div>
     <button class="sync" id="sync" type="button" data-state="local">Guardado en este teléfono</button>
@@ -440,7 +448,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
             <button type="button" data-size="l" aria-pressed="false">Grande</button>
           </div>
           <label class="toggle"><input type="checkbox" id="add-today"> Para hoy</label>
-          <label class="toggle"><input type="checkbox" id="add-later"> Para más adelante</label>
+          <label class="toggle">Meta <select id="add-goal" aria-label="Meta"></select></label>
           <label class="toggle">Para el <input type="date" id="add-due" aria-label="Fecha límite"></label>
           <select id="add-repeat" aria-label="Repetir">
             <option value="">Una vez</option>
@@ -464,10 +472,13 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     <aside class="side">
       <section class="panel dump" id="dump">
         <h2>Vaciar la cabeza</h2>
-        <p>Escribí todo lo que te da vueltas, sin ordenar. Una cosa por línea. Acá ya no se te olvida.</p>
+        <p>Escribí o dictá todo lo que te da vueltas, sin ordenar. Una cosa por línea. Acá ya no se te olvida.</p>
+        <p class="data-note mic-note" id="mic-note" role="status" hidden></p>
         <textarea id="dump-text" placeholder="llamar al médico&#10;pagar la luz&#10;terminar informe para el viernes&#10;regalo cumple de Ana&#10;ordenar el armario"></textarea>
         <div class="row">
+          <button class="btn small mic" id="dump-mic" type="button" aria-pressed="false">🎙️ Dictar</button>
           <button class="btn primary small" id="dump-add" type="button">Agregar todo</button>
+          <label class="toggle">Meta <select id="dump-goal" aria-label="Meta para lo que agregues"></select></label>
           <button class="btn small" id="dump-ai" type="button" hidden>Ordenar con Claude</button>
         </div>
         <span class="claude-note" id="dump-note" hidden>Claude le pone categoría, tamaño y marca lo urgente para hoy.</span>
@@ -608,9 +619,10 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
   const LS_KEY = "jardin-pendientes-v1";
 
   /* ================= state ================= */
-  const blank = () => ({ tasks: [], rewards: [], earned: 0, spent: 0, days: {}, badges: {}, redeemed: [], lastDoneAt: 0, comboCount: 0, archived: [], cleared: 0, lastBackup: 0, goalTitle: "", goalDate: "", deleted: [] });
+  const blank = () => ({ tasks: [], rewards: [], earned: 0, spent: 0, days: {}, badges: {}, redeemed: [], lastDoneAt: 0, comboCount: 0, archived: [], cleared: 0, lastBackup: 0, goalTitle: "", goalDate: "", deleted: [], goals: [] });
   let state = blank();
   let tab = "today";
+  let goalFilter = (() => { try { return localStorage.getItem("jardin-goalf") || ""; } catch { return ""; } })();
   let catFilter = (() => { try { return localStorage.getItem("jardin-cat") || ""; } catch { return ""; } })();
   let addSize = "s";
   let justPlanted = null;
@@ -626,10 +638,23 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
   const $ = (id) => document.getElementById(id);
 
+  function guessEmoji(title) {
+    const w = (title || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    if (/playa|mar|vacacion/.test(w)) return "🏖️";
+    if (/viaje|vuelo/.test(w)) return "✈️";
+    if (/medic|estudio|turno|salud|analisis/.test(w)) return "🩺";
+    if (/mudanza|casa|depto/.test(w)) return "🏠";
+    if (/trabajo|entrega|cliente|proyecto/.test(w)) return "💼";
+    if (/examen|curso|facu/.test(w)) return "🎓";
+    if (/cumple|fiesta|evento/.test(w)) return "🎉";
+    return "🎯";
+  }
   function normalize(s) {
     const b = blank();
     if (!s || typeof s !== "object") return b;
     for (const k of Object.keys(b)) if (s[k] !== undefined && typeof s[k] === typeof b[k]) b[k] = s[k];
+    // Antes había una sola meta (goalTitle/goalDate): pasa a ser la primera de la lista, con sus tareas.
+    const legacy = !Array.isArray(s.goals) && /^\d{4}-\d{2}-\d{2}$/.test(s.goalDate || "");
     b.tasks = (Array.isArray(s.tasks) ? s.tasks : []).filter(t => t && typeof t.text === "string").map(t => ({
       id: String(t.id || uid()), text: t.text.slice(0, 200), cat: CATS[t.cat] ? t.cat : "otros",
       size: SIZES[t.size] ? t.size : "m", today: !!t.today, done: !!t.done, doneAt: t.doneAt || 0, createdAt: t.createdAt || Date.now(),
@@ -637,13 +662,21 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       repeat: ["daily", "every2", "weekly"].includes(t.repeat) ? t.repeat : "", nextDue: Number(t.nextDue) || 0,
       parentId: t.parentId ? String(t.parentId) : "",
       due: /^\d{4}-\d{2}-\d{2}$/.test(t.due || "") ? t.due : "",
-      later: !!t.later,
+      goal: typeof t.goal === "string" ? t.goal : (legacy && !t.later && !t.repeat && !t.parentId ? "g-legacy" : ""),
     }));
     b.rewards = (Array.isArray(s.rewards) ? s.rewards : []).filter(r => r && typeof r.text === "string")
       .map(r => ({ id: String(r.id || uid()), text: r.text.slice(0, 80), cost: Math.max(5, Number(r.cost) || 50) }));
     b.redeemed = Array.isArray(s.redeemed) ? s.redeemed.slice(-100) : [];
     b.deleted = (Array.isArray(s.deleted) ? s.deleted : []).map(String).slice(-400);
     b.archived = (Array.isArray(s.archived) ? s.archived : []).filter(a => a && a.id).slice(-70);
+    b.goals = (Array.isArray(s.goals) ? s.goals : []).filter(g => g && g.id && typeof g.title === "string").map(g => ({
+      id: String(g.id), title: g.title.slice(0, 40), emoji: typeof g.emoji === "string" && g.emoji ? g.emoji.slice(0, 8) : "🎯",
+      date: /^\d{4}-\d{2}-\d{2}$/.test(g.date || "") ? g.date : "", cleared: Number(g.cleared) || 0, createdAt: Number(g.createdAt) || 0,
+    }));
+    if (legacy) b.goals = [{ id: "g-legacy", title: (s.goalTitle || "Mi meta").slice(0, 40), emoji: guessEmoji(s.goalTitle || ""), date: s.goalDate, cleared: 0, createdAt: 0 }];
+    b.goalTitle = ""; b.goalDate = "";
+    const goalIds = new Set(b.goals.map(g => g.id));
+    b.tasks.forEach(t => { if (t.goal && (!goalIds.has(t.goal) || t.repeat)) t.goal = ""; });
     // Las repetidas vuelven según la última vez que se hicieron (con el día que empieza a las 5).
     for (const t of b.tasks) if (t.repeat) {
       const last = Math.max(0, ...b.tasks.filter(x => x.parentId === t.id && x.done).map(x => x.doneAt || 0));
@@ -738,11 +771,20 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     return n;
   }
   const isPending = (t) => !t.done && !(t.repeat && t.nextDue > Date.now());
-  // «Para más adelante»: tareas sin apuro, fuera de la meta (no cuentan para la cuenta regresiva).
-  const isNow = (t) => !t.later;
-  function laterLabel() {
-    const left = daysLeft();
-    return state.goalDate && left !== null && left >= 0 ? `Después de ${state.goalTitle || "tu meta"}` : "Para más adelante";
+  // Metas: cada una con su fecha; cada tarea puede pertenecer a una (o a ninguna).
+  const goalById = (id) => state.goals.find(g => g.id === id) || null;
+  const sortedGoals = () => [...state.goals].sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999"));
+  const goalRank = (t) => { const g = t.goal && goalById(t.goal); return g && g.date ? g.date : "9999"; };
+  function goalDays(g) {
+    if (!g || !g.date) return null;
+    const today = logicalDate(); today.setHours(0, 0, 0, 0);
+    return Math.round((keyToDate(g.date) - today) / 86400000);
+  }
+  function goalStats(g) {
+    const mine = state.tasks.filter(t => t.goal === g.id && !t.repeat);
+    const done = mine.filter(t => t.done).length + (g.cleared || 0);
+    const pend = mine.filter(isPending).length;
+    return { done, pend, total: done + pend };
   }
   const isToday = (t) => t.today || !!t.repeat || (!!t.due && t.due <= dayKey());
   const keyToDate = (k) => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
@@ -762,9 +804,9 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     if (n < 7) return { cls: "soon", label: "Para el " + d.toLocaleDateString("es", { weekday: "long", day: "numeric" }) };
     return { cls: "later", label: `Para el ${short}` };
   }
-  // Prioridad: primero lo que vence antes, después lo marcado para hoy, después lo más rápido.
+  // Prioridad: primero lo que vence antes, después lo marcado para hoy, después la meta más próxima, después lo más rápido.
   const prio = (a, b) => ((a.due || "9999") < (b.due || "9999") ? -1 : (a.due || "9999") > (b.due || "9999") ? 1 : 0)
-    || (Number(!!b.today) - Number(!!a.today)) || (sizeRank(a) - sizeRank(b));
+    || (Number(!!b.today) - Number(!!a.today)) || goalRank(a).localeCompare(goalRank(b)) || (sizeRank(a) - sizeRank(b));
   const REPEATS = { daily: "cada día", every2: "cada 2 días", weekly: "cada semana" };
   const REPEAT_DAYS = { daily: 1, every2: 2, weekly: 7 };
   function nextDueFrom(repeat, now) {
@@ -772,21 +814,15 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     d.setDate(d.getDate() + (REPEAT_DAYS[repeat] || 1));
     return d.getTime();
   }
-  function daysLeft() {
-    if (!state.goalDate) return null;
-    const [y, m, d] = state.goalDate.split("-").map(Number);
-    if (!y || !m || !d) return null;
-    const goal = new Date(y, m - 1, d), today = logicalDate(); today.setHours(0, 0, 0, 0);
-    return Math.round((goal - today) / 86400000);
-  }
   const wallet = () => Math.max(0, state.earned - state.spent);
   const doneTasks = () => state.tasks.filter(t => t.done);
 
   /* ================= actions ================= */
-  function addTask(text, cat, size, today, repeat, due, later) {
+  function addTask(text, cat, size, today, repeat, due, goal) {
     text = text.trim(); if (!text) return null;
     const t = { id: uid(), text: text.slice(0, 200), cat: CATS[cat] ? cat : "otros", size: SIZES[size] ? size : "m", today: !!today, done: false, doneAt: 0, createdAt: Date.now(),
-      repeat: REPEATS[repeat] ? repeat : "", nextDue: 0, parentId: "", due: repeat ? "" : (due || ""), later: !repeat && !!later };
+      repeat: REPEATS[repeat] ? repeat : "", nextDue: 0, parentId: "", due: repeat ? "" : (due || ""),
+      goal: !repeat && goal && goalById(goal) ? goal : "" };
     state.tasks.push(t); return t;
   }
 
@@ -914,7 +950,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       el("span", { title: SIZES[t.size].label }, el("span", { class: "seeds", text: SIZES[t.size].seeds }), " " + SIZES[t.size].label),
       el("span", { class: "pts num", text: t.done ? `+${t.earned || SIZES[t.size].pts} pts` : `${SIZES[t.size].pts} pts` }),
       t.repeat ? el("span", { class: "rep", text: `↻ ${REPEATS[t.repeat]}` }) : null,
-      t.later && !t.done ? el("span", { class: "later-chip", text: "⏳ Para después" }) : null,
+      t.goal && goalFilter !== t.goal && goalById(t.goal) ? el("span", { class: "goal-chip", text: `${goalById(t.goal).emoji} ${goalById(t.goal).title}` }) : null,
     );
     const di = dueInfo(t);
     if (di) meta.prepend(el("span", { class: "due " + di.cls, text: di.label }));
@@ -956,6 +992,13 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       b.addEventListener("click", () => setCat(catFilter === key ? "" : key));
       return b;
     };
+    if (goalFilter) {
+      const g = goalById(goalFilter);
+      const gb = el("button", { class: "catchip", type: "button", "aria-pressed": "true", title: "Dejar de filtrar por meta" },
+        goalFilter === "none" ? "Sin meta" : `${g ? g.emoji + " " + g.title : "Meta"}`, el("span", { class: "n", text: "✕" }));
+      gb.addEventListener("click", () => setGoalFilter(""));
+      box.append(gb);
+    }
     box.append(chip("", "Todas", base.length));
     for (const [key, c] of Object.entries(CATS)) {
       const n = base.filter(t => t.cat === key).length;
@@ -974,8 +1017,10 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     const allPending = state.tasks.filter(isPending);
     const allToday = allPending.filter(isToday);
     const allDone = doneTasks().sort((a, b) => b.doneAt - a.doneAt);
-    renderCats(tab === "today" ? allToday : tab === "done" ? allDone : tab === "dates" ? allPending.filter(t => !t.repeat) : allPending);
-    const inCat = (t) => !catFilter || t.cat === catFilter;
+    if (goalFilter && goalFilter !== "none" && !goalById(goalFilter)) goalFilter = "";
+    const inGoal = (t) => !goalFilter || (goalFilter === "none" ? !t.goal : t.goal === goalFilter);
+    renderCats((tab === "today" ? allToday : tab === "done" ? allDone : tab === "dates" ? allPending.filter(t => !t.repeat) : allPending).filter(inGoal));
+    const inCat = (t) => (!catFilter || t.cat === catFilter) && inGoal(t);
     const pending = allPending.filter(inCat);
     const today = allToday.filter(inCat);
     const done = allDone.filter(inCat);
@@ -1005,8 +1050,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
           el("span", { text: pending.length ? "Marcá con la estrella 2 o 3 cosas para hoy. Mejor pocas y hechas que muchas y pesadas." : "Disfrutá tu jardín. Te lo ganaste." })));
         if (pending.length) {
           const g = el("ul", { class: "list" });
-          const sug = pending.filter(isNow).length ? pending.filter(isNow) : pending;
-          [...sug].sort(prio).slice(0, 4).forEach(t => g.append(taskRow(t)));
+          [...pending].sort(prio).slice(0, 4).forEach(t => g.append(taskRow(t)));
           root.append(el("div", { class: "group-title", text: "Sugerencias rápidas para empezar" }), g);
         }
       } else {
@@ -1030,32 +1074,20 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
         const g = el("ul", { class: "list" }); items.forEach(t => g.append(taskRow(t)));
         root.append(el("div", { class: "group" }, el("div", { class: "group-title" + (label === "Vencidas" ? " over" : ""), text: `${label} · ${items.length}` }), g));
       }
-      const nodate = once.filter(t => !t.due && isNow(t));
+      const nodate = once.filter(t => !t.due);
       if (nodate.length) {
         const g = el("ul", { class: "list" }); nodate.forEach(t => g.append(taskRow(t)));
         root.append(el("div", { class: "group" }, el("div", { class: "group-title", text: `Sin fecha · ${nodate.length}` }), g));
-      }
-      const laterNoDate = once.filter(t => !t.due && t.later);
-      if (laterNoDate.length) {
-        const g = el("ul", { class: "list" }); laterNoDate.forEach(t => g.append(taskRow(t)));
-        root.append(el("div", { class: "group" }, el("div", { class: "group-title later-title", text: `⏳ ${laterLabel()} · ${laterNoDate.length}` }), g));
       }
     } else if (tab === "all") {
       const waiting = state.tasks.filter(t => t.repeat && !isPending(t) && inCat(t));
       if (!pending.length) root.append(el("div", { class: "empty" }, el("strong", { text: "¡Todo hecho!" }), el("span", { text: "No queda nada pendiente. Qué alivio." })));
       for (const [key, c] of Object.entries(CATS)) {
-        const items = pending.filter(t => t.cat === key && isNow(t)).sort(prio);
+        const items = pending.filter(t => t.cat === key).sort(prio);
         if (!items.length) continue;
         const g = el("ul", { class: "list" }); items.forEach(t => g.append(taskRow(t)));
         root.append(el("div", { class: "group" },
           el("div", { class: "group-title" }, el("i", { class: "dot", style: `background:${c.color}` }), `${c.label} · ${items.length}`), g));
-      }
-      const laterAll = pending.filter(t => t.later).sort(prio);
-      if (laterAll.length) {
-        const g = el("ul", { class: "list" }); laterAll.forEach(t => g.append(taskRow(t)));
-        root.append(el("div", { class: "group" },
-          el("div", { class: "group-title later-title", text: `⏳ ${laterLabel()} · ${laterAll.length}` }),
-          el("p", { class: "data-note", text: "Sin apuro: no cuentan para la cuenta regresiva." }), g));
       }
       if (waiting.length) {
         const g = el("ul", { class: "list" });
@@ -1073,7 +1105,8 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       root.append(g);
       if (done.length) {
         root.append(el("div", { class: "row" }, el("button", { class: "btn small", type: "button", text: "Limpiar las hechas de la lista (las flores se quedan)", onclick: () => {
-          const gone = doneTasks(); state.cleared += gone.length; state.archived = state.archived.concat(gone.map(t => ({ id: t.id, size: t.size, doneAt: t.doneAt }))).slice(-70); state.tasks = state.tasks.filter(t => !t.done); persist(); render();
+          const gone = doneTasks(); state.cleared += gone.length;
+          gone.forEach(t => { const g = t.goal && goalById(t.goal); if (g && !t.repeat) g.cleared = (g.cleared || 0) + 1; }); state.archived = state.archived.concat(gone.map(t => ({ id: t.id, size: t.size, doneAt: t.doneAt }))).slice(-70); state.tasks = state.tasks.filter(t => !t.done); persist(); render();
         } })));
       }
     }
@@ -1119,37 +1152,164 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     justPlanted = null;
   }
 
-  function renderGoal() {
-    const pill = $("goal-pill");
-    const left = daysLeft();
-    pill.replaceChildren();
-    if (left === null) { pill.className = "goal-pill empty"; pill.textContent = "+ Poner una fecha límite (viaje, entrega…)"; return; }
-    pill.className = "goal-pill";
-    const title = state.goalTitle || "Tu meta";
-    const pend = state.tasks.filter(t => isPending(t) && !t.repeat && isNow(t)).length;
-    if (left > 1) {
-      const per = Math.ceil(pend / Math.max(1, left - 1));
-      pill.append(`${title}: `, el("b", { class: "num", text: `faltan ${left} días` }),
-        el("span", { text: pend ? `${pend} por hacer · con ${per} por día llegás holgada` : "¡Ya tenés todo listo!" }));
-    } else if (left === 1) {
-      pill.append(`${title}: `, el("b", { text: "¡es mañana!" }), el("span", { text: pend ? `${pend} pendientes · lo que no llegue, puede esperar` : "Todo listo. A disfrutar." }));
-    } else if (left === 0) {
-      pill.append(el("b", { text: `¡Hoy es el día: ${title}!` }), el("span", { text: "Disfrutá. Lo que hiciste ya está hecho." }));
-    } else {
-      pill.append(`${title} `, el("b", { text: "ya pasó" }), el("span", { text: "Tocá para poner una fecha nueva" }));
+  function renderGoals() {
+    const box = $("goals"); box.replaceChildren();
+    for (const g of sortedGoals()) {
+      const left = goalDays(g), st = goalStats(g);
+      const pct = st.total ? Math.round(st.done / st.total * 100) : 0;
+      let when, note;
+      if (left === null) { when = "sin fecha"; note = st.pend ? `${st.pend} por hacer` : "Todo listo"; }
+      else if (left > 1) { const per = Math.ceil(st.pend / Math.max(1, left - 1)); when = `faltan ${left} días`; note = st.pend ? `${st.pend} por hacer · con ${per} por día llegás holgada` : "¡Ya tenés todo listo!"; }
+      else if (left === 1) { when = "¡es mañana!"; note = st.pend ? `${st.pend} por hacer · lo que no llegue, puede esperar` : "Todo listo. A disfrutar."; }
+      else if (left === 0) { when = "¡es hoy!"; note = "Disfrutá. Lo que hiciste ya está hecho."; }
+      else { when = "terminó"; note = "Tocá para cerrarla"; }
+      const past = left !== null && left < 0;
+      const ed = el("button", { class: "icon", type: "button", "aria-label": `Editar meta ${g.title}`, title: "Editar meta" });
+      ed.append(svgIcon("edit"));
+      ed.addEventListener("click", (e) => { e.stopPropagation(); openGoalEditor(g); });
+      const card = el("div", { class: "goal-card" + (goalFilter === g.id ? " on" : "") + (past ? " past" : ""), role: "button", tabindex: "0",
+        "aria-pressed": goalFilter === g.id ? "true" : "false", title: past ? "Cerrar esta meta" : "Ver solo las tareas de esta meta" },
+        el("div", { class: "goal-top" }, el("span", { class: "goal-name", text: `${g.emoji} ${g.title}` }), el("b", { class: "goal-when num", text: when }), ed),
+        el("div", { class: "goal-bar" }, el("i", { style: `width:${pct}%` })),
+        el("div", { class: "goal-note" }, el("span", { text: note }), el("span", { class: "num", text: `${st.done}/${st.total} hechas` })));
+      const act = () => past ? openGoalClose(g) : setGoalFilter(goalFilter === g.id ? "" : g.id);
+      card.addEventListener("click", act);
+      card.addEventListener("keydown", (e) => { if (e.key === "Enter") act(); });
+      box.append(card);
+    }
+    const actions = el("div", { class: "goal-actions" });
+    const noGoal = state.tasks.filter(t => isPending(t) && !t.repeat && !t.goal).length;
+    if (state.goals.length && noGoal) {
+      actions.append(el("button", { class: "chip", type: "button", "aria-pressed": goalFilter === "none" ? "true" : "false",
+        text: `Sin meta · ${noGoal}`, onclick: () => setGoalFilter(goalFilter === "none" ? "" : "none") }));
+    }
+    actions.append(el("button", { class: "chip", type: "button", text: state.goals.length ? "+ Nueva meta" : "+ Poner una meta con fecha (viaje, estudio, entrega…)", onclick: () => openGoalEditor(null) }));
+    box.append(actions);
+  }
+
+  function setGoalFilter(id) {
+    goalFilter = id; spotlight = null;
+    try { localStorage.setItem("jardin-goalf", id); } catch {}
+    if (id && id !== "none") setDefaultGoal(id);
+    render();
+    if (id) {
+      const g = goalById(id);
+      toast(id === "none" ? "Mostrando las tareas sin meta." : `Mostrando solo ${g.emoji} ${g.title}. Lo que agregues va a esta meta.`, "");
     }
   }
-  $("goal-pill").addEventListener("click", () => {
-    $("goal-title").value = state.goalTitle; $("goal-date").value = state.goalDate;
-    $("goal-pill").hidden = true; $("goal-form").hidden = false; $("goal-title").focus();
-  });
-  $("goal-form").addEventListener("submit", (e) => {
-    e.preventDefault();
-    state.goalTitle = $("goal-title").value.trim().slice(0, 40);
-    state.goalDate = $("goal-date").value;
-    $("goal-pill").hidden = false; $("goal-form").hidden = true;
+
+  // Meta por defecto para lo que se agrega (carga rápida y «Vaciar la cabeza»).
+  function defaultGoal() {
+    let v = ""; try { v = localStorage.getItem("jardin-goal-default") || ""; } catch {}
+    if (v === "" && state.goals.length === 1 && (goalDays(state.goals[0]) ?? 0) >= 0) v = state.goals[0].id;
+    const g = goalById(v);
+    return g && (goalDays(g) ?? 0) >= 0 ? v : "";
+  }
+  function setDefaultGoal(id) { try { localStorage.setItem("jardin-goal-default", id || "-"); } catch {} renderGoalSelects(); }
+  function renderGoalSelects() {
+    const cur = defaultGoal();
+    for (const id of ["add-goal", "dump-goal"]) {
+      const sel = $(id); if (!sel) continue;
+      sel.replaceChildren(el("option", { value: "", text: "Sin meta" }));
+      sortedGoals().filter(g => (goalDays(g) ?? 0) >= 0).forEach(g => sel.append(el("option", { value: g.id, text: `${g.emoji} ${g.title}` })));
+      sel.value = cur;
+      sel.closest("label").hidden = !state.goals.length;
+    }
+    if (typeof updateAddHint === "function") updateAddHint();
+  }
+
+  const GOAL_EMOJIS = ["🏖️", "✈️", "🩺", "🏠", "💼", "🎓", "🎉", "🐱", "💪", "🎯"];
+  function openGoalEditor(g) {
+    const isNew = !g;
+    const o = el("div", { class: "overlay sheet-wrap", onclick: (e) => { if (e.target === o) close(); } });
+    const close = () => { o.remove(); document.removeEventListener("keydown", onKey); };
+    const onKey = (e) => { if (e.key === "Escape") close(); };
+    document.addEventListener("keydown", onKey);
+    let emoji = g ? g.emoji : "🎯";
+    const title = el("input", { type: "text", id: "goal-title", maxlength: "40", placeholder: "¿Qué se viene? (ej: La Playa, estudio médico)", "aria-label": "Nombre de la meta" });
+    title.value = g ? g.title : "";
+    const date = el("input", { type: "date", id: "goal-date", "aria-label": "Fecha" }); date.value = g ? g.date : "";
+    const pick = el("div", { class: "emoji-pick", role: "group", "aria-label": "Ícono" });
+    GOAL_EMOJIS.forEach(em => {
+      const b = el("button", { type: "button", "aria-pressed": em === emoji ? "true" : "false", text: em, "aria-label": em });
+      b.addEventListener("click", () => { emoji = em; pick.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b ? "true" : "false")); });
+      pick.append(b);
+    });
+    if (isNew) title.addEventListener("input", () => {
+      const guess = guessEmoji(title.value);
+      if (guess !== "🎯") { emoji = guess; pick.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x.textContent === guess ? "true" : "false")); }
+    });
+    const msg = el("p", { class: "data-note", role: "status" });
+    const save = () => {
+      const t = title.value.trim();
+      if (!t) { title.focus(); msg.textContent = "Ponele un nombre a la meta."; return; }
+      if (!date.value) { date.focus(); msg.textContent = "Elegí la fecha de la meta."; return; }
+      if (isNew) {
+        const ng = { id: "g" + uid(), title: t.slice(0, 40), emoji, date: date.value, cleared: 0, createdAt: Date.now() };
+        state.goals.push(ng);
+        setDefaultGoal(ng.id);
+        toast(`Meta creada: ${emoji} ${ng.title}. Asignale tareas desde la ficha de cada una, o elegila al cargar.`, "");
+      } else {
+        g.title = t.slice(0, 40); g.emoji = emoji; g.date = date.value;
+        toast("Meta actualizada.", "");
+      }
+      persist(); render(); close();
+    };
+    let confirmDel = false;
+    const delBtn = el("button", { class: "btn small danger", type: "button", text: "Borrar meta" });
+    delBtn.addEventListener("click", () => {
+      if (!confirmDel) { confirmDel = true; delBtn.textContent = "¿Seguro? Tocá de nuevo"; msg.textContent = "Las tareas de esta meta no se borran: quedan sin meta."; return; }
+      removeGoal(g, "none"); close();
+      toast("Meta borrada. Sus tareas quedaron sin meta.", "");
+    });
+    const card = el("form", { class: "card sheet", role: "dialog", "aria-modal": "true", "aria-label": isNew ? "Nueva meta" : "Editar meta", onsubmit: (e) => { e.preventDefault(); save(); } },
+      el("div", { class: "sheet-head" }, el("h3", { text: isNew ? "Nueva meta" : "Editar meta" }), el("button", { class: "icon", type: "button", "aria-label": "Cerrar", text: "✕", onclick: close })),
+      el("div", { class: "field" }, el("span", { class: "flabel", text: "Nombre" }), title),
+      el("div", { class: "field" }, el("span", { class: "flabel", text: "¿Para cuándo?" }), date),
+      el("div", { class: "field" }, el("span", { class: "flabel", text: "Ícono" }), pick),
+      msg,
+      el("div", { class: "row sheet-actions" }, isNew ? el("span") : delBtn, el("button", { class: "btn primary", type: "submit", text: isNew ? "Crear meta" : "Guardar" })));
+    o.append(card);
+    document.body.append(o);
+    if (isNew) title.focus();
+  }
+
+  // Sacar una meta. Lo pendiente: "none" (queda sin meta), "delete" (se borra) u otra meta (se pasa).
+  function removeGoal(g, pendingTo) {
+    for (const t of [...state.tasks]) {
+      if (t.goal !== g.id) continue;
+      if (t.done || pendingTo === "none") t.goal = "";
+      else if (pendingTo === "delete") { state.tasks.splice(state.tasks.indexOf(t), 1); forget(t.id); }
+      else t.goal = goalById(pendingTo) ? pendingTo : "";
+    }
+    state.goals = state.goals.filter(x => x !== g);
+    forget(g.id);
+    if (goalFilter === g.id) { goalFilter = ""; try { localStorage.setItem("jardin-goalf", ""); } catch {} }
     persist(); render();
-  });
+  }
+
+  function openGoalClose(g) {
+    const st = goalStats(g);
+    const o = el("div", { class: "overlay sheet-wrap", onclick: (e) => { if (e.target === o) close(); } });
+    const close = () => o.remove();
+    const dest = el("select", { id: "goal-leftover", "aria-label": "Qué hacer con lo que quedó" });
+    sortedGoals().filter(x => x !== g && (goalDays(x) ?? 0) >= 0).forEach(x => dest.append(el("option", { value: x.id, text: `Pasarlas a ${x.emoji} ${x.title}` })));
+    dest.append(el("option", { value: "none", text: "Dejarlas sin meta" }), el("option", { value: "delete", text: "Borrarlas" }));
+    dest.value = "none";
+    const card = el("div", { class: "card sheet", role: "dialog", "aria-modal": "true", "aria-label": "Cerrar meta" },
+      el("div", { class: "sheet-head" }, el("h3", { text: `${g.emoji} ${g.title} terminó` }), el("button", { class: "icon", type: "button", "aria-label": "Cerrar", text: "✕", onclick: close })),
+      el("p", { text: st.total ? `Hiciste ${st.done} de ${st.total} tareas para esta meta. ${st.done >= st.total ? "¡Todas! 🎉" : "Todo lo que hiciste, suma."}` : "Esta meta no tenía tareas." }),
+      st.pend ? el("div", { class: "field" }, el("span", { class: "flabel", text: st.pend === 1 ? "Quedó 1 sin hacer. ¿Qué hacemos con ella?" : `Quedaron ${st.pend} sin hacer. ¿Qué hacemos con ellas?` }), dest) : null,
+      el("div", { class: "row sheet-actions" }, el("button", { class: "btn small", type: "button", text: "Ahora no", onclick: close }),
+        el("button", { class: "btn primary", type: "button", text: "Cerrar meta", onclick: () => {
+          close(); removeGoal(g, st.pend ? dest.value : "none");
+          toast(`${g.emoji} ${g.title}: cerrada. ¡A la próxima!`, "");
+          if (st.done) { burst(null, 100); chime(4); }
+        } })));
+    o.append(card);
+    document.body.append(o);
+    if (st.done) { burst(null, 80); chime(3); }
+  }
 
   function renderStats() {
     const L = levelInfo(state.earned);
@@ -1159,13 +1319,9 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     $("st-today").textContent = state.days[dayKey()] || 0;
     $("st-streak").textContent = streak();
     $("wallet").textContent = wallet();
-    const pending = state.tasks.filter(t => isPending(t) && !t.repeat && isNow(t)).length;
+    const pending = state.tasks.filter(t => isPending(t) && !t.repeat).length;
     const reps = state.tasks.filter(t => t.repeat).length;
-    const laterN = state.tasks.filter(t => isPending(t) && !t.repeat && t.later).length;
-    const extras = [];
-    if (reps) extras.push(`${reps} ${reps === 1 ? "que se repite" : "que se repiten"}`);
-    if (laterN) extras.push(`${laterN} para más adelante`);
-    const repsTxt = extras.length ? ` (más ${extras.join(" y ")})` : "";
+    const repsTxt = reps ? ` (más ${reps} ${reps === 1 ? "que se repite" : "que se repiten"})` : "";
     const doneToday = state.days[dayKey()] || 0;
     let lede;
     if (!state.tasks.length) lede = "Cada tarea que terminás planta una flor. Sacá las cosas de tu cabeza, elegí una chiquita y empezá por ahí.";
@@ -1220,7 +1376,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
   }
 
   function render() {
-    renderGarden(); renderGoal(); renderStats(); renderList(); renderRewards(); renderBadges(); renderData();
+    renderGarden(); renderGoals(); renderGoalSelects(); renderStats(); renderList(); renderRewards(); renderBadges(); renderData();
     document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab ? "true" : "false"));
   }
 
@@ -1247,7 +1403,10 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       const d = keyToDate(dayKey()); d.setDate(d.getDate() + days); due.value = dateToKey(d);
     } });
     const today = el("input", { type: "checkbox", id: "ed-today" }); today.checked = !!t.today;
-    const later = el("input", { type: "checkbox", id: "ed-later" }); later.checked = !!t.later;
+    const goalSel = el("select", { id: "ed-goal", "aria-label": "Meta" });
+    goalSel.append(el("option", { value: "", text: "Sin meta" }));
+    sortedGoals().forEach(g => goalSel.append(el("option", { value: g.id, text: `${g.emoji} ${g.title}` })));
+    goalSel.value = t.goal && goalById(t.goal) ? t.goal : "";
     const rep = el("select", { id: "ed-repeat", "aria-label": "Repetir" });
     [["", "Una vez"], ["daily", "Cada día"], ["every2", "Cada 2 días"], ["weekly", "Cada semana"]].forEach(([v, l]) => rep.append(el("option", { value: v, text: l })));
     rep.value = t.repeat || "";
@@ -1261,7 +1420,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       t.text = text.slice(0, 200); t.cat = cat.value; t.size = size;
       if (!t.done) {
         t.today = today.checked;
-        t.later = !rep.value && later.checked;
+        t.goal = rep.value ? "" : goalSel.value;
         if (rep.value !== t.repeat) { t.repeat = rep.value; t.nextDue = 0; }
         t.due = t.repeat ? "" : due.value;
       }
@@ -1275,7 +1434,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       el("div", { class: "field" }, el("span", { class: "flabel", text: "Categoría y tamaño" }), el("div", { class: "row" }, cat, seg)),
       t.done ? null : dueRow,
       t.done ? null : el("div", { class: "row" }, el("label", { class: "toggle" }, today, " Para hoy"), rep),
-      t.done ? null : el("label", { class: "toggle later-toggle" }, later, ` Para más adelante · no cuenta para ${state.goalDate && daysLeft() !== null && daysLeft() >= 0 ? "«" + (state.goalTitle || "tu meta") + "»" : "la cuenta regresiva"}`),
+      t.done || !state.goals.length ? null : el("div", { class: "field" }, el("span", { class: "flabel", text: "Meta" }), goalSel),
       el("div", { class: "row sheet-actions" }, delBtn, el("button", { class: "btn primary", type: "submit", text: "Guardar" })));
     o.append(card);
     document.body.append(o);
@@ -1381,7 +1540,7 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
       const steps = (res && Array.isArray(res.steps) ? res.steps : []).filter(s => typeof s === "string" && s.trim()).slice(0, 6);
       if (!steps.length) throw new Error("vacío");
       const idx = state.tasks.indexOf(t);
-      const created = steps.map(s => ({ id: uid(), text: s.trim().slice(0, 200), cat: t.cat, size: "s", today: t.today, done: false, doneAt: 0, createdAt: Date.now() }));
+      const created = steps.map(s => ({ id: uid(), text: s.trim().slice(0, 200), cat: t.cat, size: "s", today: t.today, done: false, doneAt: 0, createdAt: Date.now(), goal: t.goal || "" }));
       state.tasks.splice(idx, 1, ...created);
       forget(t.id);
       unlock("split");
@@ -1408,8 +1567,8 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
   $("add-form").addEventListener("submit", (e) => {
     e.preventDefault();
     const inp = $("add-text");
-    const p = parseLine(inp.value.trim(), { cat: catSel.value, size: addSize, today: $("add-today").checked, repeat: $("add-repeat").value, due: $("add-due").value, later: $("add-later").checked });
-    const t = addTask(p.text, p.cat, p.size, p.today, p.repeat, p.due, p.later);
+    const p = parseLine(inp.value.trim(), { cat: catSel.value, size: addSize, today: $("add-today").checked, repeat: $("add-repeat").value, due: $("add-due").value, goal: $("add-goal").value });
+    const t = addTask(p.text, p.cat, p.size, p.today, p.repeat, p.due, p.goal);
     $("add-due").value = ""; updateAddHint();
     if (!t) return;
     inp.value = "";
@@ -1422,7 +1581,8 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
   function updateAddHint() {
     const bits = [CATS[catSel.value].label, SIZES[addSize].label];
     if ($("add-today").checked) bits.push("para hoy");
-    if ($("add-later").checked) bits.push("más adelante");
+    const dg = goalById($("add-goal").value);
+    if (dg) bits.push(`${dg.emoji} ${dg.title}`);
     if ($("add-repeat").value) bits.push(REPEATS[$("add-repeat").value]);
     if ($("add-due").value) bits.push("para el " + keyToDate($("add-due").value).toLocaleDateString("es", { day: "numeric", month: "short" }));
     $("add-text").placeholder = `Nueva tarea · ${bits.join(" · ")}`;
@@ -1432,7 +1592,8 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
     $("add-opts").hidden = !open;
     $("add-opts-btn").setAttribute("aria-expanded", open ? "true" : "false");
   });
-  ["add-cat", "add-today", "add-later", "add-repeat", "add-due"].forEach(id => $(id).addEventListener("change", updateAddHint));
+  ["add-goal", "dump-goal"].forEach(id => $(id).addEventListener("change", (e) => setDefaultGoal(e.target.value)));
+  ["add-cat", "add-today", "add-repeat", "add-due"].forEach(id => $(id).addEventListener("change", updateAddHint));
   $("add-size").addEventListener("click", () => setTimeout(updateAddHint, 0));
 
   $("tabs").addEventListener("click", (e) => {
@@ -1443,9 +1604,14 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
   // Etiquetas opcionales en cada línea: #categoria  @rapida|@mediana|@grande  !hoy  !despues  !diaria  !cada2  !semanal
   const fold = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   function parseLine(line, defaults) {
-    const out = { text: line, cat: catSel.value, size: "m", today: false, repeat: "", ...(defaults || {}) };
-    out.text = line.replace(/(^|\s)([#@!])([\p{L}\d/]+)/gu, (m, sp, sign, word) => {
+    const out = { text: line, cat: catSel.value, size: "m", today: false, repeat: "", goal: defaultGoal(), ...(defaults || {}) };
+    out.text = line.replace(/(^|\s)([#@!+])([\p{L}\d/]+)/gu, (m, sp, sign, word) => {
       const w = fold(word);
+      if (sign === "+") {
+        const g = state.goals.find(g => fold(g.title).split(/\s+/).some(x => x.startsWith(w)) || fold(g.title).replace(/\s+/g, "").startsWith(w));
+        if (g) { out.goal = g.id; return ""; }
+        return m;
+      }
       if (sign === "#") {
         const key = Object.keys(CATS).find(k => k === w || fold(CATS[k].label).split(" ")[0] === w);
         if (key) { out.cat = key; return ""; }
@@ -1454,7 +1620,7 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
         if (size) { out.size = size; return ""; }
       } else {
         if (w === "hoy") { out.today = true; return ""; }
-        if (w === "despues" || w === "luego" || w === "masadelante") { out.later = true; return ""; }
+        if (w === "despues" || w === "luego" || w === "masadelante" || w === "sinmeta") { out.goal = ""; return ""; }
         if (w === "diaria" || w === "diario") { out.repeat = "daily"; return ""; }
         if (w === "semanal") { out.repeat = "weekly"; return ""; }
         if (w === "cada2" || w === "cada2dias") { out.repeat = "every2"; return ""; }
@@ -1473,10 +1639,63 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
     return out;
   }
 
+  /* ---------- dictado: vaciar la cabeza hablando ---------- */
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null, listening = false;
+  const MIC_IDLE = "Escuchando… hablá y hacé una pausa entre cada cosa.";
+  function micUI(on) {
+    const b = $("dump-mic");
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+    b.textContent = on ? "■ Terminar" : "🎙️ Dictar";
+    b.classList.toggle("rec", on);
+    $("mic-note").hidden = !on;
+    if (on) $("mic-note").textContent = MIC_IDLE;
+  }
+  // Cada pausa es una cosa; además separa por comas y por «después», «también», «otra cosa»…
+  function spokenToLines(text) {
+    return text.split(/\s*(?:[,;.]|\b(?:y después|después|y también|también|además|otra cosa|siguiente|punto)\b)\s*/i)
+      .map(x => x.replace(/^(?:y |e |tengo que |hay que |necesito |acordarme de |me falta )+/i, "").trim())
+      .filter(x => x.length > 2);
+  }
+  function appendLines(lines) {
+    const ta = $("dump-text");
+    const cur = ta.value.replace(/\s+$/, "");
+    ta.value = (cur ? cur + "\n" : "") + lines.join("\n") + "\n";
+    ta.scrollTop = ta.scrollHeight;
+  }
+  function stopDictation() { listening = false; try { rec && rec.stop(); } catch {} micUI(false); }
+  $("dump-mic").addEventListener("click", () => {
+    if (listening) { stopDictation(); return; }
+    if (!SpeechRec) {
+      toast("Este navegador no tiene dictado propio. Tocá el cuadro y usá el micrófono 🎙️ del teclado del celu.", "");
+      $("dump-text").focus(); return;
+    }
+    rec = new SpeechRec();
+    rec.lang = "es-AR"; rec.continuous = true; rec.interimResults = true;
+    rec.onresult = (e) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) { const ls = spokenToLines(r[0].transcript); if (ls.length) appendLines(ls); }
+        else interim += r[0].transcript;
+      }
+      $("mic-note").textContent = interim ? "… " + interim : MIC_IDLE;
+    };
+    rec.onerror = (e) => {
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") { stopDictation(); toast("Sin permiso para el micrófono. Activalo en los ajustes del teléfono para esta app.", ""); }
+      else if (e.error === "network") { stopDictation(); toast("El dictado necesita internet. Probá de nuevo con conexión.", ""); }
+    };
+    // el reconocimiento se corta solo tras un silencio largo: si seguimos dictando, lo reactivamos
+    rec.onend = () => { if (listening) { try { rec.start(); } catch { stopDictation(); } } else micUI(false); };
+    try { rec.start(); listening = true; micUI(true); } catch { toast("No se pudo iniciar el dictado.", ""); }
+  });
+
   $("dump-add").addEventListener("click", () => {
     const lines = $("dump-text").value.split(/\n+/).map(s => s.replace(/^[\s\-*•·\d.)]+/, "").trim()).filter(Boolean);
     if (!lines.length) { toast("Escribí al menos una cosa, una por línea.", ""); return; }
-    lines.forEach(l => { const p = parseLine(l); addTask(p.text, p.cat, p.size, p.today, p.repeat, p.due, p.later); });
+    if (listening) stopDictation();
+    const base = { goal: $("dump-goal").value };
+    lines.forEach(l => { const p = parseLine(l, base); addTask(p.text, p.cat, p.size, p.today, p.repeat, p.due, p.goal); });
     $("dump-text").value = "";
     if (lines.length >= 5) unlock("dump");
     tab = "all";
@@ -1493,7 +1712,7 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
     try {
       const list = await organizeWithClaude(text);
       if (!list.length) throw new Error("vacío");
-      list.forEach(x => addTask(x.text, x.cat, x.size, x.today));
+      list.forEach(x => addTask(x.text, x.cat, x.size, x.today, "", "", $("dump-goal").value));
       $("dump-text").value = "";
       if (list.length >= 5) unlock("dump");
       tab = list.some(x => x.today) ? "today" : "all";
@@ -1510,14 +1729,16 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
 
   $("where-start").addEventListener("click", () => {
     const allPending = state.tasks.filter(isPending);
-    const pending = allPending.filter(t => isNow(t) || (t.due && dueDiff(t) <= 0) || t.today).length ? allPending.filter(t => isNow(t) || (t.due && dueDiff(t) <= 0) || t.today) : allPending;
+    const pending = allPending;
     if (!pending.length) { toast(state.tasks.length ? "¡No queda nada! Descansá." : "Primero vaciá tu cabeza: escribí todo en el panel «Vaciar la cabeza».", ""); return; }
     const urgent = pending.filter(t => t.due && dueDiff(t) <= 0);
     const pool = urgent.length ? urgent : pending.filter(isToday);
-    const src = pool.length ? pool : pending;
+    const nearest = sortedGoals().find(g => (goalDays(g) ?? 0) >= 0 && pending.some(t => t.goal === g.id));
+    const src = pool.length ? pool : (nearest ? pending.filter(t => t.goal === nearest.id) : pending);
     const min = Math.min(...src.map(sizeRank));
     const choice = urgent.length ? [...urgent].sort(prio)[0] : pick(src.filter(t => sizeRank(t) === min));
     spotlight = choice.id;
+    if (goalFilter && !(goalFilter === "none" ? !choice.goal : choice.goal === goalFilter)) goalFilter = "";
     tab = isToday(choice) ? "today" : "all";
     render();
     const row = document.querySelector(`.task[data-id="${choice.id}"]`);
@@ -1644,7 +1865,11 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
     out.deleted = [...new Set([...a.deleted, ...b.deleted])].slice(-400);
     out.lastDoneAt = Math.max(a.lastDoneAt, b.lastDoneAt);
     out.lastBackup = Math.max(a.lastBackup, b.lastBackup);
-    out.goalTitle = a.goalTitle || b.goalTitle; out.goalDate = a.goalDate || b.goalDate;
+    const gm = new Map();
+    [...b.goals, ...a.goals].forEach(g => { const prev = gm.get(g.id); gm.set(g.id, { ...g, cleared: Math.max(g.cleared || 0, prev ? prev.cleared || 0 : 0) }); });
+    out.goals = [...gm.values()].filter(g => !out.deleted.includes(g.id));
+    const okGoals = new Set(out.goals.map(g => g.id));
+    out.tasks.forEach(t => { if (t.goal && !okGoals.has(t.goal)) t.goal = ""; });
     return out;
   }
 

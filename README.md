@@ -2,6 +2,12 @@
 
 Checklist gamificado: vaciás la cabeza, ordenás tus tareas y cada tarea terminada planta una flor. Tiene puntos, niveles, premios que elegís vos y logros.
 
+## Metas y dictado
+
+- **Metas**: podés tener varias a la vez (ej. 🏖️ La Playa · 10/10 y 🩺 Estudio médico · 25/10), cada una con su cuenta regresiva y su barra de progreso. Tocá una meta para ver solo sus tareas; cuando pasa la fecha, la cerrás y elegís qué hacer con lo que quedó.
+- **Etiquetas al cargar**: `#categoria`, `@rapida|@mediana|@grande`, `!hoy`, `!mañana`, `!2/10`, `!diaria|!cada2|!semanal`, `+meta` (ej. `+playa`), `!sinmeta`.
+- **Dictar**: en «Vaciar la cabeza», 🎙️ Dictar — cada pausa es una tarea nueva.
+
 ## Instalarla en el celular
 
 1. Abrí la app en el navegador del teléfono (Safari en iPhone, Chrome en Android).
