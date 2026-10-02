@@ -671,6 +671,14 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
   const $ = (id) => document.getElementById(id);
 
+  // Si el nombre de una meta trae un emoji («La Playa 🏖️»), el emoji pasa a ser su ícono y sale del nombre.
+  const EMOJI_RE = /\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic}️?)*/gu;
+  function splitGoalTitle(title, emoji) {
+    const found = (title || "").match(EMOJI_RE);
+    if (!found) return { title: (title || "").trim(), emoji };
+    const clean = title.replace(EMOJI_RE, "").replace(/\s{2,}/g, " ").replace(/\s+([:,.;!?])/g, "$1").replace(/[\s:–-]+$/, "").trim();
+    return { title: clean || title.trim(), emoji: found[0] };
+  }
   function guessEmoji(title) {
     const w = (title || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     if (/playa|mar|vacacion/.test(w)) return "🏖️";
@@ -708,6 +716,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
       date: /^\d{4}-\d{2}-\d{2}$/.test(g.date || "") ? g.date : "", cleared: Number(g.cleared) || 0, createdAt: Number(g.createdAt) || 0,
     }));
     if (legacy) b.goals = [{ id: "g-legacy", title: (s.goalTitle || "Mi meta").slice(0, 40), emoji: guessEmoji(s.goalTitle || ""), date: s.goalDate, cleared: 0, createdAt: 0 }];
+    b.goals.forEach(g => { const x = splitGoalTitle(g.title, g.emoji); g.title = x.title; g.emoji = x.emoji; });
     b.goalTitle = ""; b.goalDate = "";
     const goalIds = new Set(b.goals.map(g => g.id));
     b.tasks.forEach(t => { if (t.goal && (!goalIds.has(t.goal) || t.repeat)) t.goal = ""; });
@@ -1305,7 +1314,8 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     });
     const msg = el("p", { class: "data-note", role: "status" });
     const save = () => {
-      const t = title.value.trim();
+      const split = splitGoalTitle(title.value, emoji);
+      const t = split.title; if (split.emoji !== emoji) emoji = split.emoji;
       if (!t) { title.focus(); msg.textContent = "Ponele un nombre a la meta."; return; }
       if (!date.value) { date.focus(); msg.textContent = "Elegí la fecha de la meta."; return; }
       if (isNew) {
