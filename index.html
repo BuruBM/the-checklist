@@ -113,6 +113,9 @@ body {
   .sync { position: absolute; top: -3px; right: 0; font-size: 11px; }
   .eyebrow { font-size: 11px; }
   .goals { margin-top: 8px; }
+  .goal-hero { padding: 10px 14px; border-radius: 18px; }
+  .gh-title { font-size: 19px; }
+  .gh-when b { font-size: 26px; }
   .goal-when { font-size: 15px; }
   .wrap { gap: 14px; }
   .level { flex-basis: 100%; }
@@ -134,10 +137,27 @@ button { cursor: pointer; }
 .top h1 em { font-style: normal; color: var(--leaf); }
 .top .lede { color: var(--ink-soft); margin: 8px 0 0; max-width: 56ch; }
 .wrap > *, .top > div { min-width: 0; }
-.goals { display: flex; gap: 6px; margin-top: 10px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; max-width: 100%; }
-.goals::-webkit-scrollbar { display: none; }
+.goals { display: grid; gap: 8px; margin-top: 12px; max-width: 620px; }
+.goal-row { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; max-width: 100%; }
+.goal-row::-webkit-scrollbar { display: none; }
+.goal-hero {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: 10px; row-gap: 8px;
+  width: 100%; text-align: left; border: 1.5px solid transparent; border-radius: 20px; padding: 12px 16px; color: var(--ink);
+  background: linear-gradient(120deg, color-mix(in srgb, var(--c-viaje) 26%, var(--surface)), color-mix(in srgb, var(--c-viaje) 8%, var(--surface)) 70%, color-mix(in srgb, var(--marigold) 14%, var(--surface)));
+}
+.goal-hero.on { border-color: var(--c-viaje); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-viaje) 22%, transparent); }
+.goal-hero.past { background: linear-gradient(120deg, color-mix(in srgb, var(--marigold) 30%, var(--surface)), color-mix(in srgb, var(--marigold) 10%, var(--surface))); }
+.gh-emoji { font-size: 30px; line-height: 1; grid-row: span 2; }
+.gh-title { font-family: var(--display); font-weight: 800; font-size: 21px; letter-spacing: -.01em; overflow-wrap: anywhere; line-height: 1.1; }
+.gh-when { font-size: 14px; color: var(--ink-soft); white-space: nowrap; }
+.gh-when b { font-family: var(--display); font-weight: 800; font-size: 28px; color: var(--c-viaje); line-height: 1; letter-spacing: -.02em; }
+.goal-hero.past .gh-when b { color: #B7791F; font-size: 20px; }
+.gh-bar { height: 8px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 10%, transparent); overflow: hidden; }
+.gh-bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--c-viaje), color-mix(in srgb, var(--c-viaje) 55%, var(--marigold))); transition: width .6s ease; }
+.goal-hero.past .gh-bar i { background: var(--marigold); }
+.gh-count { font-size: 12.5px; color: var(--ink-soft); font-weight: 600; white-space: nowrap; }
 .goal-pill {
-  flex: none; position: relative; overflow: hidden; display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap;
+  flex: none; font-size: 12.5px !important; position: relative; overflow: hidden; display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap;
   border: 1.5px solid color-mix(in srgb, var(--c-viaje) 40%, transparent); background: var(--surface); color: var(--ink);
   border-radius: 99px; padding: 5px 12px; font-size: 13.5px; font-weight: 600;
 }
@@ -1180,25 +1200,43 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     return { left, st, pct, short, when, note, past: left !== null && left < 0 };
   }
 
-  // Encabezado: una línea de chips compactos (el relleno es el progreso). El detalle aparece al tocar uno.
+  // Encabezado: la meta más próxima a todo el ancho (motiva); las demás, chiquitas debajo.
   function renderGoals() {
     const box = $("goals"); box.replaceChildren();
-    for (const g of sortedGoals()) {
+    const goals = sortedGoals();
+    const hero = goals.find(g => (goalDays(g) ?? 0) >= 0) || goals[0];
+    if (hero) {
+      const m = goalSummary(hero);
+      const when = m.left === null ? el("span", { class: "gh-when", text: "sin fecha" })
+        : m.left > 1 ? el("span", { class: "gh-when" }, el("b", { class: "num", text: String(m.left) }), " días")
+        : el("span", { class: "gh-when" }, el("b", { text: m.short === "terminó" ? "terminó" : `¡${m.short}!` }));
+      const card = el("button", { class: "goal-hero" + (goalFilter === hero.id ? " on" : "") + (m.past ? " past" : ""), type: "button",
+        "aria-pressed": goalFilter === hero.id ? "true" : "false", title: m.past ? "Cerrar esta meta" : "Ver solo las tareas de esta meta" },
+        el("span", { class: "gh-emoji", text: hero.emoji }), el("span", { class: "gh-title", text: hero.title }), when,
+        el("span", { class: "gh-bar" }, el("i", { style: `width:${m.pct}%` })),
+        el("span", { class: "gh-count num", text: m.past ? "tocá para cerrarla" : `${m.st.done}/${m.st.total}` }));
+      card.addEventListener("click", () => m.past ? openGoalClose(hero) : setGoalFilter(goalFilter === hero.id ? "" : hero.id));
+      box.append(card);
+    }
+    const row = el("div", { class: "goal-row" });
+    for (const g of goals) {
+      if (g === hero) continue;
       const m = goalSummary(g);
       const chip = el("button", { class: "goal-pill" + (goalFilter === g.id ? " on" : "") + (m.past ? " past" : ""), type: "button",
         "aria-pressed": goalFilter === g.id ? "true" : "false", title: m.past ? "Cerrar esta meta" : `${g.title}: ${m.when} · ${m.st.done}/${m.st.total} hechas` },
         el("i", { class: "goal-fill", style: `width:${m.pct}%` }),
         el("span", { class: "goal-pill-name", text: `${g.emoji} ${g.title}` }), el("b", { class: "num", text: m.short }));
       chip.addEventListener("click", () => m.past ? openGoalClose(g) : setGoalFilter(goalFilter === g.id ? "" : g.id));
-      box.append(chip);
+      row.append(chip);
     }
     const noGoal = state.tasks.filter(t => isPending(t) && !t.repeat && !t.goal).length;
-    if (state.goals.length && noGoal) {
-      box.append(el("button", { class: "goal-pill plain" + (goalFilter === "none" ? " on" : ""), type: "button", "aria-pressed": goalFilter === "none" ? "true" : "false",
+    if (goals.length && noGoal) {
+      row.append(el("button", { class: "goal-pill plain" + (goalFilter === "none" ? " on" : ""), type: "button", "aria-pressed": goalFilter === "none" ? "true" : "false",
         text: `Sin meta · ${noGoal}`, onclick: () => setGoalFilter(goalFilter === "none" ? "" : "none") }));
     }
-    box.append(el("button", { class: "goal-pill plain add", type: "button", "aria-label": "Nueva meta",
-      text: state.goals.length ? "+ Meta" : "+ Poner una meta con fecha (viaje, estudio, entrega…)", onclick: () => openGoalEditor(null) }));
+    row.append(el("button", { class: "goal-pill plain add", type: "button", "aria-label": "Nueva meta",
+      text: goals.length ? "+ Meta" : "+ Poner una meta con fecha (viaje, estudio, entrega…)", onclick: () => openGoalEditor(null) }));
+    box.append(row);
   }
 
   // Franja arriba de la lista con el detalle de la meta elegida.
