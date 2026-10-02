@@ -6,6 +6,7 @@ Checklist gamificado: vaciás la cabeza, ordenás tus tareas y cada tarea termin
 
 - **Metas**: podés tener varias a la vez (ej. 🏖️ La Playa · 10/10 y 🩺 Estudio médico · 25/10), cada una con su cuenta regresiva y su barra de progreso. Tocá una meta para ver solo sus tareas; cuando pasa la fecha, la cerrás y elegís qué hacer con lo que quedó.
 - **Etiquetas al cargar**: `#categoria`, `@rapida|@mediana|@grande`, `!hoy`, `!mañana`, `!2/10`, `!diaria|!cada2|!semanal`, `+meta` (ej. `+playa`), `!sinmeta`.
+- **Interpretación automática**: lo que escribís o dictás sin etiquetas se clasifica solo por palabras clave (categoría, tamaño según el primer verbo, fechas como «mañana» o «el viernes», y la meta si la nombrás). Las etiquetas siempre mandan.
 - **Dictar**: en «Vaciar la cabeza», 🎙️ Dictar — cada pausa es una tarea nueva.
 
 ## Instalarla en el celular

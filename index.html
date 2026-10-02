@@ -47,6 +47,7 @@
   --c-recados: #C79A2A;
   --c-salud: #D0617E;
   --c-otros: #7E8A80;
+  --c-creatividad: #7B6CD9;
   --radius: 14px;
   --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
   --body: "Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -566,6 +567,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
     trabajo: { label: "Trabajo", color: "var(--c-trabajo)" },
     recados: { label: "Compras", color: "var(--c-recados)" },
     salud: { label: "Salud y cuidado", color: "var(--c-salud)" },
+    creatividad: { label: "Creatividad", color: "var(--c-creatividad)" },
     personal: { label: "Personal", color: "var(--c-personal)" },
     otros: { label: "Otros", color: "var(--c-otros)" },
   };
@@ -1517,7 +1519,7 @@ select { border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; 
 Reglas:
 - Una acción por tarea, empieza con un verbo, máximo 70 caracteres.
 - No inventes tareas nuevas. Divide una línea solo si contiene claramente varias cosas distintas.
-- "cat": una de gatos, casa, viaje, trabajo, recados (compras), salud (salud y cuidado personal), personal, otros.
+- "cat": una de gatos, casa, viaje, trabajo, creatividad (fotos, videos, arte, escritura no laboral), recados (compras), salud (salud y cuidado personal), personal, otros.
 - "size": "s" (menos de 15 min), "m" (15-60 min), "l" (más de 1 hora).
 - "today": true solo si suena urgente o tiene fecha muy próxima; como mucho 3 en true.
 Responde SOLO con JSON: {"tasks":[{"text":"...","cat":"...","size":"s","today":false}]}
@@ -1603,38 +1605,141 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
 
   // Etiquetas opcionales en cada línea: #categoria  @rapida|@mediana|@grande  !hoy  !despues  !diaria  !cada2  !semanal
   const fold = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  /* ---------- interpretar lo escrito o dictado: categoría, tamaño, fecha y meta ---------- */
+  // Las claves se comparan sin mayúsculas ni tildes (la ñ se respeta) y por comienzo de palabra;
+  // con "=" delante, la palabra tiene que ser exacta.
+  const foldN = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-̂̄-ͯ]/g, "").normalize("NFC");
+  const CAT_RULES = {
+    // 1) Gatos gana siempre
+    gatos: ["gato", "michi", "milo", "zoe", "veterin", "=vete", "arena", "piedra", "pipeta", "antipulga", "desparasit", "sieger", "felifat", "proteliv",
+      "alimento", "fuente", "rascador", "hipoalergen", "royal", "canin", "suplemento", "seniorline", "tachito"],
+    // 2) Cosas específicas (si hay varias, gana la que aparece primero en la frase)
+    viaje: ["viaj", "valija", "equipaje", "pasaporte", "vuelo", "pasaje", "despegar", "hotel", "aeropuerto", "check", "playa", "bikini", "pareo", "protector"],
+    salud: ["turno", "medic", "doctor", "dentista", "odontolog", "dermatolog", "ginecolog", "analisis", "estudio", "receta", "remedio", "vacuna", "depil", "=dep",
+      "uñas", "pelo", "peluquer", "kinesi", "psicolog", "terapia", "gimnasio", "=gym", "yoga", "estir", "osteo", "=eco", "ecograf", "=pap", "gillette",
+      "maggie", "sara", "tintur", "teñ"],
+    trabajo: ["trabajo", "cliente", "presupuesto", "factur", "informe", "presentacion", "propuesta", "reunion", "entrega", "escuela", "colegio", "taller", "flex"],
+    casa: ["heladera", "baño", "cocina", "sabana", "toalla", "ropa", "placard", "armario", "cajon", "planta", "basura", "gasista", "electricista", "plomer",
+      "termica", "estufa", "pared", "llave", "expensa", "alquiler", "=luz", "=gas", "anafe", "mudanza", "celeste", "=regar"],
+    personal: ["cumple", "amig", "=mama", "=papa", "abuel", "curso", "ingles", "=leer", "=dni", "licencia", "banco", "tramite", "tarjeta", "seguro"],
+  };
+  // 3) Débiles: solo si no hubo nada de lo anterior (en este orden)
+  const WEAK_RULES = [
+    ["creatividad", ["foto", "video", "edit", "edicion", "=reel", "dibuj", "ilustr", "pint", "acuarela", "collage", "music", "cancion", "guion", "escrib", "cuento",
+      "poema", "portfolio", "diseñ", "camara", "filma", "graba"]],
+    ["casa", ["limpi", "lava", "orden", "barr", "aspir", "planch", "arregl"]],
+    ["recados", ["compr", "super", "mercado", "farmacia", "retir", "devolv", "regalo"]],
+  ];
+  const SIZE_RULES = {
+    s: ["llam", "mand", "envi", "avis", "pag", "transfer", "confirm", "reserv", "ped", "revis", "cheque", "averigu", "consult", "medic", "=regar", "cambi", "cort", "=poner", "ponerle", "tir"],
+    m: ["compr", "busc", "limpi", "lav", "orden", "coordin", "prepar", "arm", "hac", "=ir", "retir", "devolv", "tap", "arregl", "cocin"],
+    l: ["termin", "pint", "renov", "mud", "escrib", "diseñ", "edit", "organiz"],
+  };
+  const wordHit = (words, key) => key.startsWith("=") ? words.indexOf(key.slice(1)) : words.findIndex(w => w.startsWith(key));
+  function classify(text) {
+    const words = foldN(text).split(/[^a-z0-9ñ]+/).filter(Boolean);
+    const has = (keys) => { let best = -1; for (const k of keys) { const i = wordHit(words, k); if (i >= 0 && (best < 0 || i < best)) best = i; } return best; };
+    let cat = null;
+    const billy = has(["pag", "factur", "boleta", "servicio"]) >= 0;
+    if (has(CAT_RULES.gatos) >= 0 || (!billy && has(["agua"]) >= 0)) cat = "gatos";
+    if (!cat) {
+      let best = Infinity;
+      for (const k of ["viaje", "salud", "trabajo", "casa", "personal"]) { const i = has(CAT_RULES[k]); if (i >= 0 && i < best) { best = i; cat = k; } }
+      if (!cat && billy && has(["agua"]) >= 0) cat = "casa";
+    }
+    if (!cat) for (const [k, keys] of WEAK_RULES) if (has(keys) >= 0) { cat = k; break; }
+    // tamaño: el primer verbo de la frase; «todo / a fondo / completo» lo agranda, «rápido / un mensaje» lo achica
+    let size = null, first = Infinity;
+    for (const [k, keys] of Object.entries(SIZE_RULES)) { const i = has(keys); if (i >= 0 && i < first) { first = i; size = k; } }
+    if (size) {
+      const order = ["s", "m", "l"]; let i = order.indexOf(size);
+      const f = " " + words.join(" ") + " ";
+      if (/ (todo|toda|todos|todas|completo|completa|general) | a fondo /.test(f)) i = Math.min(2, i + 1);
+      if (/ (rapido|rapidito|whatsapp) | un mensaje /.test(f)) i = Math.max(0, i - 1);
+      size = order[i];
+    }
+    return { cat, size };
+  }
+  const MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  const WEEKDAYS = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
+  // Fechas dichas con palabras: «hoy», «mañana», «el viernes», «el 15 de octubre», «15/10». Devuelve el texto sin esas palabras.
+  function datesFromText(text, out, explicit) {
+    const today = keyToDate(dayKey());
+    const setDue = (d) => { if (!explicit.due) out.due = dateToKey(d); };
+    let t = text;
+    t = t.replace(/(^|\s)(?:para\s+)?hoy(?=$|[\s,.;!?])/i, (m, sp) => { if (!explicit.today) out.today = true; return sp; });
+    t = t.replace(/(^|\s)(?:para\s+)?pasado\s+mañana(?=$|[\s,.;!?])/i, (m, sp) => { const d = new Date(today); d.setDate(d.getDate() + 2); setDue(d); return sp; });
+    t = t.replace(/(^|\s)(?:para\s+)?mañana(?=$|[\s,.;!?])/i, (m, sp, off, all) => {
+      if (/\b(la|esta|cada)\s*$/i.test(all.slice(0, off + sp.length))) return m;     // «a la mañana», «esta mañana»
+      const d = new Date(today); d.setDate(d.getDate() + 1); setDue(d); return sp;
+    });
+    t = t.replace(/(^|\s)(?:para\s+)?(?:el|este)?\s*(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)(?=$|[\s,.;!?])/i, (m, sp, day) => {
+      const target = WEEKDAYS.indexOf(foldN(day));
+      const d = new Date(today); let add = (target - d.getDay() + 7) % 7; if (add === 0) add = 7;
+      d.setDate(d.getDate() + add); setDue(d); return sp;
+    });
+    t = t.replace(/(^|\s)(?:para\s+)?(?:el\s+)?(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)(?=$|[\s,.;!?])/i, (m, sp, dd, mon) => {
+      const mi = MONTHS.indexOf(foldN(mon) === "setiembre" ? "septiembre" : foldN(mon));
+      let d = new Date(today.getFullYear(), mi, Number(dd)); if (d < today && (today - d) > 60 * 86400000) d.setFullYear(d.getFullYear() + 1);
+      setDue(d); return sp;
+    });
+    t = t.replace(/(^|\s)(?:para\s+)?(?:el\s+)?(\d{1,2})\/(\d{1,2})(?=$|[\s,.;!?])/, (m, sp, dd, mm) => {
+      let d = new Date(today.getFullYear(), Number(mm) - 1, Number(dd)); if (d < today && (today - d) > 60 * 86400000) d.setFullYear(d.getFullYear() + 1);
+      setDue(d); return sp;
+    });
+    return t.replace(/\s{2,}/g, " ").replace(/\s+([,.;!?])/g, "$1").trim();
+  }
+  // Meta nombrada en la frase («para la playa» → 🏖️ La Playa)
+  function goalFromText(text) {
+    const words = foldN(text).split(/[^a-z0-9ñ]+/).filter(Boolean);
+    const stop = new Set(["para", "con", "del", "las", "los", "una", "unos", "unas"]);
+    for (const g of sortedGoals()) {
+      if ((goalDays(g) ?? 0) < 0) continue;
+      const keys = foldN(g.title).split(/[^a-z0-9ñ]+/).filter(w => w.length >= 4 && !stop.has(w));
+      if (keys.some(k => words.includes(k))) return g.id;
+    }
+    return null;
+  }
+
   function parseLine(line, defaults) {
     const out = { text: line, cat: catSel.value, size: "m", today: false, repeat: "", goal: defaultGoal(), ...(defaults || {}) };
+    const explicit = {};
     out.text = line.replace(/(^|\s)([#@!+])([\p{L}\d/]+)/gu, (m, sp, sign, word) => {
       const w = fold(word);
       if (sign === "+") {
         const g = state.goals.find(g => fold(g.title).split(/\s+/).some(x => x.startsWith(w)) || fold(g.title).replace(/\s+/g, "").startsWith(w));
-        if (g) { out.goal = g.id; return ""; }
+        if (g) { out.goal = g.id; explicit.goal = true; return ""; }
         return m;
       }
       if (sign === "#") {
         const key = Object.keys(CATS).find(k => k === w || fold(CATS[k].label).split(" ")[0] === w);
-        if (key) { out.cat = key; return ""; }
+        if (key) { out.cat = key; explicit.cat = true; return ""; }
       } else if (sign === "@") {
         const size = { s: "s", rapida: "s", rapidita: "s", m: "m", mediana: "m", l: "l", grande: "l" }[w];
-        if (size) { out.size = size; return ""; }
+        if (size) { out.size = size; explicit.size = true; return ""; }
       } else {
-        if (w === "hoy") { out.today = true; return ""; }
-        if (w === "despues" || w === "luego" || w === "masadelante" || w === "sinmeta") { out.goal = ""; return ""; }
+        if (w === "hoy") { out.today = true; explicit.today = true; return ""; }
+        if (w === "despues" || w === "luego" || w === "masadelante" || w === "sinmeta") { out.goal = ""; explicit.goal = true; return ""; }
         if (w === "diaria" || w === "diario") { out.repeat = "daily"; return ""; }
         if (w === "semanal") { out.repeat = "weekly"; return ""; }
         if (w === "cada2" || w === "cada2dias") { out.repeat = "every2"; return ""; }
-        if (w === "manana") { const d = keyToDate(dayKey()); d.setDate(d.getDate() + 1); out.due = dateToKey(d); return ""; }
+        if (w === "manana") { const d = keyToDate(dayKey()); d.setDate(d.getDate() + 1); out.due = dateToKey(d); explicit.due = true; return ""; }
         const dm = w.match(/^(\d{1,2})\/(\d{1,2})$/);
         if (dm) {
           const today = keyToDate(dayKey());
           let d = new Date(today.getFullYear(), Number(dm[2]) - 1, Number(dm[1]));
           if (d < today && (today - d) > 60 * 86400000) d.setFullYear(d.getFullYear() + 1);
-          out.due = dateToKey(d); return "";
+          out.due = dateToKey(d); explicit.due = true; return "";
         }
       }
       return m;
     }).replace(/\s{2,}/g, " ").trim();
+    // Lo que no vino con etiqueta, se interpreta del texto
+    if (!out.repeat) out.text = datesFromText(out.text, out, explicit);
+    const auto = classify(out.text);
+    if (!explicit.cat && !catFilter && auto.cat) { out.cat = auto.cat; out.autoCat = true; }
+    if (!explicit.size && auto.size) out.size = auto.size;
+    if (!explicit.goal) { const g = goalFromText(out.text); if (g) out.goal = g; }
     out.text = out.text.charAt(0).toUpperCase() + out.text.slice(1);
     return out;
   }
@@ -1695,12 +1800,14 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
     if (!lines.length) { toast("Escribí al menos una cosa, una por línea.", ""); return; }
     if (listening) stopDictation();
     const base = { goal: $("dump-goal").value };
-    lines.forEach(l => { const p = parseLine(l, base); addTask(p.text, p.cat, p.size, p.today, p.repeat, p.due, p.goal); });
+    const byCat = {};
+    lines.forEach(l => { const p = parseLine(l, base); const t = addTask(p.text, p.cat, p.size, p.today, p.repeat, p.due, p.goal); if (t) byCat[t.cat] = (byCat[t.cat] || 0) + 1; });
+    const summary = Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${n} ${CATS[k].label}`).join(" · ");
     $("dump-text").value = "";
     if (lines.length >= 5) unlock("dump");
     tab = "all";
     persist(); render();
-    toast(`${lines.length} ${lines.length === 1 ? "cosa fuera" : "cosas fuera"} de tu cabeza. Respirá.`, "");
+    toast(`${lines.length} ${lines.length === 1 ? "cosa fuera" : "cosas fuera"} de tu cabeza: ${summary}. Si alguna quedó mal, tocala y la cambiás.`, "");
     chime(2);
   });
 
