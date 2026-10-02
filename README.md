@@ -19,9 +19,29 @@ Checklist gamificado: vaciás la cabeza, ordenás tus tareas y cada tarea termin
 Todo (tareas, puntos, premios, logros) se guarda automáticamente en el teléfono y funciona sin internet.
 Desde «Tus datos» podés guardar una copia y restaurarla en otro teléfono.
 
-## Publicación
+## Cómo está hecho
 
-Es un sitio estático (GitHub Pages): `index.html`, `manifest.webmanifest`, `sw.js` e `icons/`.
+Sitio estático (GitHub Pages, rama `main`), sin frameworks ni paso de compilación:
+
+| Archivo | Qué tiene |
+|---|---|
+| `index.html` | La estructura de la página |
+| `css/app.css` | El diseño (modo claro y oscuro) |
+| `js/core.js` | Núcleo de datos sin pantalla: normalizar y migrar datos, días que empiezan a las 5, combinar dos dispositivos |
+| `js/classify.js` | Interpretar lo escrito o dictado: categoría, tamaño, fechas, meta y lo aprendido de las correcciones |
+| `js/app.js` | La app: pantallas, gamificación, metas, dictado, sincronización y avisos |
+| `sw.js`, `manifest.webmanifest`, `icons/` | Instalación como app y funcionamiento sin internet |
+| `supabase/` | Tablas, horarios y la función de notificaciones |
+
+## Pruebas
+
+```bash
+npm install
+npm test           # lógica: núcleo, clasificador (con frases reales) y notificaciones
+npm run test:e2e   # la app en un celular simulado con Playwright
+```
+
+GitHub las corre solas en cada cambio (pestaña **Actions**).
 
 ## Sincronizar entre dispositivos (Supabase)
 
