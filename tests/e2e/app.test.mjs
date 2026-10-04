@@ -86,7 +86,7 @@ test("una repetida hecha a la 1 de la mañana vuelve ese mismo día a las 5", as
   await ctx.close();
 });
 
-test("dictado: cada pausa es una línea, sin los «tengo que», y sigue escuchando tras un silencio", async () => {
+test("dictado: interpreta todo junto al terminar, sin repetir lo que el celular manda dos veces", async () => {
   const { page, errors, ctx } = await phone(browser, {});
   await page.addInitScript(() => {
     window.SpeechRecognition = window.webkitSpeechRecognition = class { start() { window.__rec = this; window.__starts = (window.__starts || 0) + 1; } stop() { setTimeout(() => this.onend && this.onend(), 5); } };
@@ -94,14 +94,60 @@ test("dictado: cada pausa es una línea, sin los «tengo que», y sigue escuchan
   await page.goto(server.url);
   await page.click("#dump-mic");
   await page.evaluate(() => {
-    const fin = (t) => { const r = [{ transcript: t }]; r.isFinal = true; return r; };
-    window.__rec.onresult({ resultIndex: 0, results: [fin("tengo que comprar pilas, llamar a la abuela")] });
-    window.__rec.onend();
-    window.__rec.onresult({ resultIndex: 0, results: [fin("y después pedir turno con la dermatóloga")] });
+    const res = (t, fin) => { const r = [{ transcript: t }]; r.isFinal = fin; return r; };
+    const send = (list) => window.__rec.onresult({ resultIndex: 0, results: list.map(([t, f]) => res(t, f)) });
+    // como Chrome en Android: cada resultado trae el anterior adentro, y se repiten
+    send([["tengo que revisar", false]]);
+    send([["tengo que revisar el checklist", true]]);
+    send([["tengo que revisar el checklist", true], ["tengo que revisar el checklist y agregar un par de cuestiones", true]]);
+    send([["tengo que revisar el checklist", true], ["tengo que revisar el checklist y agregar un par de cuestiones", true], ["y ordenar la casa", true]]);
+    window.__rec.onend();   // silencio largo: sigue escuchando
+    send([["ordenar la casa", true], ["después comprar pan y leche", true]]);
   });
   assert.equal(await page.evaluate(() => window.__starts), 2);
+  assert.equal(await page.inputValue("#dump-text"), "");   // mientras habla, no se carga nada
+  assert.match(await page.textContent("#mic-note"), /comprar pan y leche/);
   await page.click("#dump-mic");
-  assert.equal(await page.inputValue("#dump-text"), "comprar pilas\nllamar a la abuela\npedir turno con la dermatóloga\n");
+  await page.waitForFunction(() => document.querySelector("#dump-text").value);
+  assert.equal(await page.inputValue("#dump-text"), "Revisar el checklist\nAgregar un par de cuestiones\nOrdenar la casa\nComprar pan y leche\n");
+  assert.match(await page.textContent("#mic-note"), /Entendí 4 cosas/);
+  // agregar y deshacer: vuelve todo al cuadro
+  await page.click("#dump-add");
+  assert.equal(await page.locator("#list .task").count(), 4);
+  await page.locator(".toast button", { hasText: "Deshacer" }).click();
+  assert.equal(await page.locator('#list .task:not([data-id="ex"])').count(), 0);
+  assert.match(await page.inputValue("#dump-text"), /Revisar el checklist/);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test("elegir varias: borrar el último vaciado de una, y deshacer", async () => {
+  const { page, errors, ctx } = await phone(browser, {});
+  await page.goto(server.url);
+  await dump(page, "Pagar la luz\nLlamar a la abuela");
+  await page.waitForTimeout(3200);
+  await dump(page, Array.from({ length: 12 }, (_, i) => `Revisar el checklist ${i + 1}`).join("\n"));
+  await page.click("[data-tab=all]");
+  assert.equal(await page.locator("#list .task").count(), 14);
+  await page.click("#pick-btn");
+  await page.click("#pick-batch");
+  assert.match(await page.textContent(".pick-count"), /12 elegidas/);
+  await page.click("#pick-delete");
+  assert.deepEqual((await page.locator("#list .task .ttext").allTextContents()).sort(), ["Llamar a la abuela", "Pagar la luz"]);
+  assert.equal(await page.locator("#list .task").count(), 2);
+  assert.equal(await page.locator("#pick-btn").textContent(), "Elegir varias");
+  await page.locator(".toast button", { hasText: "Deshacer" }).last().click();
+  assert.equal(await page.locator("#list .task").count(), 14);
+  // elegir a mano
+  await page.click("#pick-btn");
+  await page.locator(".task", { hasText: "Pagar la luz" }).click();
+  await page.locator(".task", { hasText: "Revisar el checklist 3" }).locator(".check").click();
+  await page.click("#pick-delete");
+  assert.equal(await page.locator("#list .task").count(), 12);
+  assert.equal(await page.locator(".task", { hasText: "Pagar la luz" }).count(), 0);
+  const st = await saved(page);
+  assert.equal(st.tasks.length, 12);
+  assert.ok(st.deleted.length >= 2);
   assert.deepEqual(errors, []);
   await ctx.close();
 });

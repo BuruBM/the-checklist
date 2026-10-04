@@ -1,6 +1,6 @@
 // Jardín de pendientes: funciona sin conexión.
 // La página se busca primero en la red (para recibir mejoras) y, sin conexión, sale de la caché.
-const CACHE = "jardin-v18";
+const CACHE = "jardin-v19";
 const SHELL = ["./", "index.html", "css/app.css", "js/core.js", "js/classify.js", "js/app.js", "config.js", "vendor/supabase-2.117.1.js", "manifest.webmanifest", "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {

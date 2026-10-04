@@ -60,6 +60,7 @@
   let addSize = "s";
   let justPlanted = null;
   let spotlight = null;
+  let picking = null, pickDepth = 0;   // modo «Elegir varias»: ids elegidos y cuántos vaciados se sumaron
   let pendingRedeem = null;
 
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -248,6 +249,18 @@
     toast("Tarea borrada.", "", { label: "Deshacer", fn: () => { unforget(t.id); state.tasks.splice(Math.min(idx, state.tasks.length), 0, t); persist(); render(); } });
   }
 
+  // Borra varias de una; el aviso deja deshacerlo
+  function removeMany(list, withToast = true) {
+    const gone = list.map(t => ({ t, idx: state.tasks.indexOf(t) })).filter(x => x.idx >= 0).sort((a, b) => b.idx - a.idx);
+    if (!gone.length) return;
+    gone.forEach(({ t, idx }) => { state.tasks.splice(idx, 1); forget(t.id); });
+    persist(); render();
+    if (withToast) toast(gone.length === 1 ? "1 tarea borrada." : `${gone.length} tareas borradas.`, "", { label: "Deshacer", fn: () => {
+      [...gone].reverse().forEach(({ t, idx }) => { unforget(t.id); state.tasks.splice(Math.min(idx, state.tasks.length), 0, t); });
+      persist(); render();
+    } });
+  }
+
   function unlock(id) {
     if (state.badges[id]) return false;
     state.badges[id] = Date.now();
@@ -302,7 +315,63 @@
   };
   function svgIcon(name) { const s = document.createElementNS("http://www.w3.org/2000/svg", "svg"); s.setAttribute("viewBox", "0 0 24 24"); s.innerHTML = ICONS[name]; return s; }
 
+  function pickRow(t) {
+    const on = picking.has(t.id);
+    const li = el("li", { class: "task picking" + (on ? " picked" : "") + (t.done ? " done" : ""), "data-id": t.id });
+    const toggle = () => { on ? picking.delete(t.id) : picking.add(t.id); render(); };
+    const chk = el("button", { class: "check", type: "button", "aria-label": "Elegir", "aria-pressed": on ? "true" : "false", onclick: toggle });
+    chk.append(svgIcon("check"));
+    const c = CATS[t.cat];
+    const body = el("div", { class: "tbody", role: "button", tabindex: "0", onclick: toggle, onkeydown: (e) => { if (e.key === "Enter") toggle(); } },
+      el("div", { class: "ttext", text: t.text }),
+      el("div", { class: "meta" }, el("span", { class: "cat" }, el("i", { class: "dot", style: `background:${c.color}` }), c.label)));
+    li.append(chk, body, el("span"));
+    return li;
+  }
+  // Tandas de tareas cargadas juntas (un «Agregar todo»), de la más nueva a la más vieja
+  function dumpBatches() {
+    const ts = state.tasks.filter(t => !t.parentId && t.createdAt).sort((a, b) => b.createdAt - a.createdAt);
+    const out = [];
+    let cur = [];
+    for (const t of ts) {
+      if (cur.length && cur[cur.length - 1].createdAt - t.createdAt > 3000) { out.push(cur); cur = []; }
+      cur.push(t);
+    }
+    if (cur.length) out.push(cur);
+    return out.filter(b => b.length >= 2);
+  }
+  function pickBar() {
+    const n = picking.size;
+    const batches = dumpBatches();
+    const bar = el("div", { class: "pick-bar", role: "toolbar", "aria-label": "Elegir varias" },
+      el("span", { class: "pick-count", text: n === 1 ? "1 elegida" : `${n} elegidas` }));
+    if (pickDepth < batches.length) bar.append(el("button", { class: "btn small", type: "button", id: "pick-batch",
+      text: pickDepth ? "+ el vaciado anterior" : "Último vaciado", onclick: () => {
+        batches[pickDepth].forEach(t => picking.add(t.id)); pickDepth++;
+        if (tab !== "all" && tab !== "done") { tab = "all"; catFilter = ""; goalFilter = ""; }
+        render();
+      } }));
+    bar.append(...[
+      el("button", { class: "btn small", type: "button", id: "pick-all", text: "Todas las que se ven", onclick: () => {
+        $("list").querySelectorAll(".task[data-id]").forEach(li => picking.add(li.dataset.id)); render();
+      } }),
+      n ? el("button", { class: "btn small", type: "button", text: "Ninguna", onclick: () => { picking.clear(); pickDepth = 0; render(); } }) : null,
+      el("button", { class: "btn small danger", type: "button", id: "pick-delete", disabled: !n, text: n ? `Borrar ${n}` : "Borrar", onclick: () => {
+        const list = state.tasks.filter(t => picking.has(t.id));
+        setPicking(false); removeMany(list);
+      } }),
+      el("button", { class: "btn small", type: "button", text: "Listo", onclick: () => setPicking(false) })].filter(Boolean));
+    return bar;
+  }
+  function setPicking(on) {
+    picking = on ? new Set() : null; pickDepth = 0;
+    $("pick-btn").setAttribute("aria-pressed", on ? "true" : "false");
+    $("pick-btn").textContent = on ? "Cancelar" : "Elegir varias";
+    render();
+  }
+
   function taskRow(t) {
+    if (picking && t.id !== "ex") return pickRow(t);
     const li = el("li", { class: "task" + (t.done ? " done" : "") + (spotlight === t.id ? " spot" : ""), "data-id": t.id });
     const chk = el("button", { class: "check", type: "button", "aria-label": t.done ? "Marcar como pendiente" : "Marcar como hecha", "aria-pressed": t.done ? "true" : "false" });
     chk.append(svgIcon("check"));
@@ -392,6 +461,7 @@
     $("c-done").textContent = done.length;
     $("c-dates").textContent = pending.filter(t => t.due).length;
 
+    if (picking) root.append(pickBar());
     const info = goalInfoBar();
     if (info) root.append(info);
     if (!state.tasks.length) {
@@ -1007,6 +1077,8 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
   ["add-cat", "add-today", "add-repeat", "add-due"].forEach(id => $(id).addEventListener("change", updateAddHint));
   $("add-size").addEventListener("click", () => setTimeout(updateAddHint, 0));
 
+  $("pick-btn").addEventListener("click", () => setPicking(!picking));
+
   $("tabs").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-tab]"); if (!b) return;
     tab = b.dataset.tab; spotlight = null; render();
@@ -1061,51 +1133,73 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
   /* ---------- dictado: vaciar la cabeza hablando ---------- */
   const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
   let rec = null, listening = false;
-  const MIC_IDLE = "Escuchando… hablá y hacé una pausa entre cada cosa.";
+  const MIC_IDLE = "Escuchando… contá todo lo que tenés que hacer, como te salga. Cuando termines, tocá «Terminar».";
   function micUI(on) {
     const b = $("dump-mic");
     b.setAttribute("aria-pressed", on ? "true" : "false");
     b.textContent = on ? "■ Terminar" : "🎙️ Dictar";
     b.classList.toggle("rec", on);
-    $("mic-note").hidden = !on;
-    if (on) $("mic-note").textContent = MIC_IDLE;
+    if (on) { $("mic-note").hidden = false; $("mic-note").textContent = MIC_IDLE; }
   }
-  // Cada pausa es una cosa; además separa por comas y por «después», «también», «otra cosa»…
-  function spokenToLines(text) {
-    return text.split(/\s*(?:[,;.]|\b(?:y después|después|y también|también|además|otra cosa|siguiente|punto)\b)\s*/i)
-      .map(x => x.replace(/^(?:y |e |tengo que |hay que |necesito |acordarme de |me falta )+/i, "").trim())
-      .filter(x => x.length > 2);
-  }
+  // Mientras hablás, solo se muestra lo que va entendiendo. Al terminar, se interpreta todo junto
+  // (qué cosas son tareas distintas, sin «tengo que» ni muletillas, sin repetidos) y queda en el cuadro para revisar.
+  let heard = [], segment = [], finishing = null;
+  const heardText = (interim) => JC.mergeHeard([...heard, ...segment, interim || ""]).join(" ");
   function appendLines(lines) {
     const ta = $("dump-text");
     const cur = ta.value.replace(/\s+$/, "");
     ta.value = (cur ? cur + "\n" : "") + lines.join("\n") + "\n";
     ta.scrollTop = ta.scrollHeight;
   }
-  function stopDictation() { listening = false; try { rec && rec.stop(); } catch {} micUI(false); }
+  function finishDictation() {
+    if (!finishing) return;
+    clearTimeout(finishing); finishing = null;
+    const lines = JC.speechToTasks(JC.mergeHeard([...heard, ...segment]).join(". "));
+    heard = []; segment = [];
+    micUI(false);
+    if (!lines.length) { $("mic-note").hidden = true; return; }
+    appendLines(lines);
+    $("mic-note").hidden = false;
+    $("mic-note").textContent = `Entendí ${lines.length === 1 ? "1 cosa" : lines.length + " cosas"}. Revisalas en el cuadro, corregí lo que haga falta y tocá «Agregar todo».`;
+  }
+  function stopDictation() {
+    if (!listening) return;
+    listening = false;
+    finishing = setTimeout(finishDictation, 1500);   // por si el navegador no avisa que terminó
+    try { rec && rec.stop(); } catch { finishDictation(); }
+  }
   $("dump-mic").addEventListener("click", () => {
     if (listening) { stopDictation(); return; }
+    if (finishing) return;
     if (!SpeechRec) {
       toast("Este navegador no tiene dictado propio. Tocá el cuadro y usá el micrófono 🎙️ del teclado del celu.", "");
       $("dump-text").focus(); return;
     }
+    heard = []; segment = [];
     rec = new SpeechRec();
     rec.lang = "es-AR"; rec.continuous = true; rec.interimResults = true;
     rec.onresult = (e) => {
-      let interim = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
+      // se relee la lista entera en cada evento: así no importa si el navegador repite resultados
+      const finals = []; let interim = "";
+      for (let i = 0; i < e.results.length; i++) {
         const r = e.results[i];
-        if (r.isFinal) { const ls = spokenToLines(r[0].transcript); if (ls.length) appendLines(ls); }
-        else interim += r[0].transcript;
+        if (r.isFinal) finals.push(r[0].transcript); else interim += r[0].transcript;
       }
-      $("mic-note").textContent = interim ? "… " + interim : MIC_IDLE;
+      segment = JC.mergeHeard(finals);
+      if (listening) {
+        const said = heardText(interim);
+        $("mic-note").textContent = said ? "Escuchando: «…" + said.slice(-140) + "»" : MIC_IDLE;
+      }
     };
     rec.onerror = (e) => {
-      if (e.error === "not-allowed" || e.error === "service-not-allowed") { stopDictation(); toast("Sin permiso para el micrófono. Activalo en los ajustes del teléfono para esta app.", ""); }
-      else if (e.error === "network") { stopDictation(); toast("El dictado necesita internet. Probá de nuevo con conexión.", ""); }
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") { listening = false; heard = []; segment = []; micUI(false); $("mic-note").hidden = true; toast("Sin permiso para el micrófono. Activalo en los ajustes del teléfono para esta app.", ""); }
+      else if (e.error === "network") { listening = false; heard = []; segment = []; micUI(false); $("mic-note").hidden = true; toast("El dictado necesita internet. Probá de nuevo con conexión.", ""); }
     };
-    // el reconocimiento se corta solo tras un silencio largo: si seguimos dictando, lo reactivamos
-    rec.onend = () => { if (listening) { try { rec.start(); } catch { stopDictation(); } } else micUI(false); };
+    // el reconocimiento se corta solo tras un silencio largo: si seguimos dictando, guardamos lo dicho y lo reactivamos
+    rec.onend = () => {
+      if (listening) { heard = JC.mergeHeard([...heard, ...segment]); segment = []; try { rec.start(); } catch { stopDictation(); } }
+      else finishDictation();
+    };
     try { rec.start(); listening = true; micUI(true); } catch { toast("No se pudo iniciar el dictado.", ""); }
   });
 
@@ -1114,14 +1208,15 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
     if (!lines.length) { toast("Escribí al menos una cosa, una por línea.", ""); return; }
     if (listening) stopDictation();
     const base = { goal: $("dump-goal").value };
-    const byCat = {};
-    lines.forEach(l => { const p = parseLine(l, base); const t = addTask(p.text, p.cat, p.size, p.today, p.repeat, p.due, p.goal); if (t) byCat[t.cat] = (byCat[t.cat] || 0) + 1; });
+    const byCat = {}, added = [], typed = $("dump-text").value;
+    lines.forEach(l => { const p = parseLine(l, base); const t = addTask(p.text, p.cat, p.size, p.today, p.repeat, p.due, p.goal); if (t) { added.push(t); byCat[t.cat] = (byCat[t.cat] || 0) + 1; } });
     const summary = Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${n} ${CATS[k].label}`).join(" · ");
-    $("dump-text").value = "";
+    $("dump-text").value = ""; $("mic-note").hidden = true;
     if (lines.length >= 5) unlock("dump");
     tab = "all";
     persist(); render();
-    toast(`${lines.length} ${lines.length === 1 ? "cosa fuera" : "cosas fuera"} de tu cabeza: ${summary}. Si alguna quedó mal, tocala y la cambiás.`, "");
+    toast(`${lines.length} ${lines.length === 1 ? "cosa fuera" : "cosas fuera"} de tu cabeza: ${summary}. Si alguna quedó mal, tocala y la cambiás.`, "",
+      { label: "Deshacer", fn: () => { removeMany(added, false); $("dump-text").value = typed; } });
     chime(2);
   });
 

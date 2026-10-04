@@ -46,3 +46,34 @@ test("la meta se reconoce si se la nombra", () => {
   assert.equal(goalFromText("ayuno para el estudio", goals), "ge");
   assert.equal(goalFromText("pagar expensas", goals), null);
 });
+
+// Dictado: lo dicho de corrido se separa en tareas, sin muletillas ni repetidos
+const { speechToTasks, mergeHeard } = require("../../js/classify.js");
+
+test("dictado: un «y» seguido de otro verbo separa dos tareas", () => {
+  assert.deepEqual(speechToTasks("tengo que revisar el checklist y agregar un par de cuestiones y ordenar la casa"),
+    ["Revisar el checklist", "Agregar un par de cuestiones", "Ordenar la casa"]);
+  assert.deepEqual(speechToTasks("necesito pedir turno con la dermatóloga y tengo que pagar la luz después ordenar el placard y hay que lavar la ropa"),
+    ["Pedir turno con la dermatóloga", "Pagar la luz", "Ordenar el placard", "Lavar la ropa"]);
+  assert.deepEqual(speechToTasks("comprarme bikini y depilarme el viernes"), ["Comprarme bikini", "Depilarme el viernes"]);
+});
+
+test("dictado: un «y» entre cosas de la misma tarea no la parte", () => {
+  assert.deepEqual(speechToTasks("eh bueno tengo que comprar pan y leche, también llamar a Sara y a Maggie"),
+    ["Comprar pan y leche", "Llamar a Sara y a Maggie"]);
+  assert.deepEqual(speechToTasks("llamar a Carlos y Perla y ir al súper"), ["Llamar a Carlos y Perla", "Ir al súper"]);
+  assert.deepEqual(speechToTasks("buscar el alquiler y el celular"), ["Buscar el alquiler y el celular"]);
+});
+
+test("dictado: sin repetidos, aunque se diga dos veces", () => {
+  assert.deepEqual(speechToTasks("ordenar la casa. Ordenar la casa, y no me tengo que olvidar de medicar a Milo"), ["Ordenar la casa", "Medicar a Milo"]);
+  assert.deepEqual(speechToTasks("eh. mmm. bueno"), []);
+});
+
+test("dictado: los resultados repetidos del celular se juntan en una sola frase", () => {
+  // Chrome en Android manda cada resultado con el anterior adentro, y a veces repite uno entero
+  const heard = mergeHeard(["tengo que", "tengo que revisar el checklist", "tengo que revisar el checklist y agregar algo",
+    "tengo que revisar el checklist y agregar algo", "ordenar la casa", "tengo que revisar el checklist"]);
+  assert.deepEqual(heard, ["tengo que revisar el checklist y agregar algo", "ordenar la casa"]);
+  assert.deepEqual(speechToTasks(heard.join(". ")), ["Revisar el checklist", "Agregar algo", "Ordenar la casa"]);
+});

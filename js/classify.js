@@ -13,7 +13,7 @@
     gatos: ["gato", "michi", "milo", "zoe", "veterin", "=vete", "arena", "piedra", "pipeta", "antipulga", "desparasit", "sieger", "felifat", "proteliv",
       "alimento", "fuente", "rascador", "hipoalergen", "royal", "canin", "suplemento", "seniorline", "tachito"],
     // 2) Cosas específicas (si hay varias, gana la que aparece primero en la frase)
-    viaje: ["viaj", "valija", "equipaje", "pasaporte", "vuelo", "pasaje", "despegar", "hotel", "aeropuerto", "check", "playa", "bikini", "pareo", "protector"],
+    viaje: ["viaj", "valija", "equipaje", "pasaporte", "vuelo", "pasaje", "despegar", "hotel", "aeropuerto", "=check", "checkin", "playa", "bikini", "pareo", "protector"],
     salud: ["turno", "medic", "doctor", "dentista", "odontolog", "dermatolog", "ginecolog", "analisis", "estudio", "receta", "remedio", "vacuna", "depil", "=dep",
       "uñas", "pelo", "peluquer", "kinesi", "psicolog", "terapia", "gimnasio", "=gym", "yoga", "estir", "osteo", "=eco", "ecograf", "=pap", "gillette",
       "maggie", "sara", "tintur", "teñ"],
@@ -121,7 +121,74 @@
     return { learned: { cat: cap(out.cat), size: cap(out.size) }, words: taught };
   }
 
-  const api = { foldN, wordsOf, CAT_RULES, WEAK_RULES, SIZE_RULES, classify, datesFromText, goalFromText, learnFrom };
+  /* ---------- dictado: de lo hablado a una lista de tareas ---------- */
+  // Algunos celulares (Chrome en Android) repiten lo ya reconocido: cada resultado trae el anterior
+  // completo o vuelve a mandar una frase. Nos quedamos con la versión más larga de cada frase.
+  function mergeHeard(parts) {
+    const key = (s) => foldN(s).replace(/[^a-z0-9ñ]+/g, " ").trim();
+    const out = [];
+    for (const raw of parts) {
+      const t = (raw || "").trim(), k = key(t);
+      if (!k) continue;
+      const last = out.length ? key(out[out.length - 1]) : "";
+      if (last && k.startsWith(last)) { out[out.length - 1] = t; continue; }
+      if (out.some(o => key(o).includes(k))) continue;
+      out.push(t);
+    }
+    return out;
+  }
+  // Sustantivos comunes que terminan como un infinitivo
+  const NOT_VERBS = new Set(["lugar", "hogar", "collar", "taller", "mujer", "placer", "azucar", "dolar", "militar", "familiar", "celular", "particular",
+    "regular", "alquiler", "ayer", "super", "cualquier", "primer", "tercer", "alfiler", "bar", "mar", "par", "altar", "polar", "solar", "titular", "estar"]);
+  const isInfinitive = (w) => {
+    const f = foldN(w).replace(/[^a-zñ]/g, "");
+    if (f === "ir" || f === "irme" || f === "irse") return true;
+    if (f.length < 3 || NOT_VERBS.has(f)) return false;
+    return /(ar|er|ir)$/.test(f) || /^.{2,}(ar|er|ir)(lo|la|los|las|le|les|me|te|se|nos|selo|sela|melo|mela)$/.test(f);
+  };
+  // Frases que anuncian una tarea nueva: después de un «y», cortan
+  const STARTERS = new Set(["tengo", "tendria", "hay", "necesito", "debo", "deberia", "quiero", "acordarme", "falta", "me", "no"]);
+  const INTENT = /^(?:(?:y|e|que|entonces|tambien|despues|ademas|bueno|ah)\s+)*(?:yo\s+)?(?:no\s+me\s+(?:tengo|puedo)\s+que?\s*olvidar\s+de|no\s+olvidarme\s+de|me\s+tengo\s+que\s+acordar\s+de|acordarme\s+de|tengo\s+que|tendria\s+que|hay\s+que|necesito|deberia|debo|quiero|me\s+falta|me\s+gustaria|tengo\s+pendiente)\s+/;
+  const FILLERS = /(^|[\s,])(?:eh+m*|em+|mm+|bueno|o sea|digamos|viste)(?=$|[\s,.])/gi;
+  const CONNECTORS = /\s*(?:[,;.!?:]+|\b(?:y\s+)?(?:despu[eé]s|luego|tambi[eé]n|adem[aá]s|aparte|otra cosa|por otro lado|por [uú]ltimo)(?![\p{L}]))\s*/iu;
+
+  // «tengo que revisar el checklist y agregar un par de cosas, después ordenar la casa»
+  //   → ["Revisar el checklist", "Agregar un par de cosas", "Ordenar la casa"]
+  function speechToTasks(text) {
+    const pieces = [];
+    const clean = (text || "").replace(FILLERS, "$1").replace(/\s{2,}/g, " ");
+    for (const chunk of clean.split(CONNECTORS)) {
+      if (!chunk || !chunk.trim()) continue;
+      // un «y» seguido de otro verbo (o de «tengo que», «hay que»…) separa dos tareas
+      const words = chunk.trim().split(/\s+/);
+      let cur = [];
+      words.forEach((w, i) => {
+        const f = foldN(w);
+        const next = words[i + 1];
+        if ((f === "y" || f === "e") && cur.length && next && (isInfinitive(next) || STARTERS.has(foldN(next)))) { pieces.push(cur.join(" ")); cur = []; return; }
+        cur.push(w);
+      });
+      if (cur.length) pieces.push(cur.join(" "));
+    }
+    const seen = new Set(), out = [];
+    for (let p of pieces) {
+      // sacar «tengo que», «hay que», «necesito»… del principio (comparando sin tildes)
+      for (let guard = 0; guard < 4; guard++) {
+        const m = foldN(p).match(INTENT);
+        if (!m) break;
+        p = p.slice(m[0].length);
+      }
+      p = p.replace(/^(?:y|e)\s+/i, "").replace(/\s+(?:y|e)$/i, "").replace(/[\s,.;:!?¿¡-]+$/, "").replace(/^[\s,.;:!?¿¡-]+/, "").trim();
+      if (p.length < 3 || !/\p{L}/u.test(p)) continue;
+      const k = foldN(p).replace(/[^a-z0-9ñ]+/g, " ").trim();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(p.charAt(0).toUpperCase() + p.slice(1));
+    }
+    return out;
+  }
+
+  const api = { foldN, wordsOf, CAT_RULES, WEAK_RULES, SIZE_RULES, classify, datesFromText, goalFromText, learnFrom, mergeHeard, speechToTasks, isInfinitive };
   root.JardinClassify = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

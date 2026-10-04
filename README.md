@@ -7,7 +7,8 @@ Checklist gamificado: vaciás la cabeza, ordenás tus tareas y cada tarea termin
 - **Metas**: podés tener varias a la vez (ej. 🏖️ La Playa · 10/10 y 🩺 Estudio médico · 25/10), cada una con su cuenta regresiva y su barra de progreso. Tocá una meta para ver solo sus tareas; cuando pasa la fecha, la cerrás y elegís qué hacer con lo que quedó.
 - **Etiquetas al cargar**: `#categoria`, `@rapida|@mediana|@grande`, `!hoy`, `!mañana`, `!2/10`, `!diaria|!cada2|!semanal`, `+meta` (ej. `+playa`), `!sinmeta`.
 - **Interpretación automática**: lo que escribís o dictás sin etiquetas se clasifica solo por palabras clave (categoría, tamaño según el primer verbo, fechas como «mañana» o «el viernes», y la meta si la nombrás). Las etiquetas siempre mandan.
-- **Dictar**: en «Vaciar la cabeza», 🎙️ Dictar — cada pausa es una tarea nueva.
+- **Dictar**: en «Vaciar la cabeza», 🎙️ Dictar y hablás de corrido. Al tocar «Terminar», la app separa las tareas (por «después», «también», o un «y» seguido de otro verbo), saca los «tengo que» y las muletillas, descarta repetidos y deja la lista en el cuadro para revisar antes de agregar.
+- **Deshacer y borrar varias**: después de «Agregar todo» aparece «Deshacer». Con «Elegir varias» marcás tareas (o «Último vaciado» de un toque) y las borrás juntas.
 
 ## Instalarla en el celular
 
@@ -28,7 +29,7 @@ Sitio estático (GitHub Pages, rama `main`), sin frameworks ni paso de compilaci
 | `index.html` | La estructura de la página |
 | `css/app.css` | El diseño (modo claro y oscuro) |
 | `js/core.js` | Núcleo de datos sin pantalla: normalizar y migrar datos, días que empiezan a las 5, combinar dos dispositivos |
-| `js/classify.js` | Interpretar lo escrito o dictado: categoría, tamaño, fechas, meta y lo aprendido de las correcciones |
+| `js/classify.js` | Interpretar lo escrito o dictado: separar lo dicho en tareas, categoría, tamaño, fechas, meta y lo aprendido de las correcciones |
 | `js/app.js` | La app: pantallas, gamificación, metas, dictado, sincronización y avisos |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Instalación como app y funcionamiento sin internet |
 | `supabase/` | Tablas, horarios y la función de notificaciones |
