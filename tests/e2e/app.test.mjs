@@ -102,21 +102,22 @@ test("dictado: interpreta todo junto al terminar, sin repetir lo que el celular 
     send([["tengo que revisar el checklist", true], ["tengo que revisar el checklist y agregar un par de cuestiones", true]]);
     send([["tengo que revisar el checklist", true], ["tengo que revisar el checklist y agregar un par de cuestiones", true], ["y ordenar la casa", true]]);
     window.__rec.onend();   // silencio largo: sigue escuchando
-    send([["ordenar la casa", true], ["después comprar pan y leche", true]]);
+    // al reactivarse, el celular vuelve a mandar lo último (corregido) y sigue
+    send([["tengo que revisar el check list y agregar un par de cuestiones y ordenar la casa", true], ["después comprar pan y leche", true]]);
   });
   assert.equal(await page.evaluate(() => window.__starts), 2);
   assert.equal(await page.inputValue("#dump-text"), "");   // mientras habla, no se carga nada
   assert.match(await page.textContent("#mic-note"), /comprar pan y leche/);
   await page.click("#dump-mic");
   await page.waitForFunction(() => document.querySelector("#dump-text").value);
-  assert.equal(await page.inputValue("#dump-text"), "Revisar el checklist\nAgregar un par de cuestiones\nOrdenar la casa\nComprar pan y leche\n");
+  assert.equal(await page.inputValue("#dump-text"), "Revisar el check list\nAgregar un par de cuestiones\nOrdenar la casa\nComprar pan y leche\n");
   assert.match(await page.textContent("#mic-note"), /Entendí 4 cosas/);
   // agregar y deshacer: vuelve todo al cuadro
   await page.click("#dump-add");
   assert.equal(await page.locator("#list .task").count(), 4);
   await page.locator(".toast button", { hasText: "Deshacer" }).click();
   assert.equal(await page.locator('#list .task:not([data-id="ex"])').count(), 0);
-  assert.match(await page.inputValue("#dump-text"), /Revisar el checklist/);
+  assert.match(await page.inputValue("#dump-text"), /Revisar el check list/);
   assert.deepEqual(errors, []);
   await ctx.close();
 });

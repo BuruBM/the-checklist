@@ -77,3 +77,18 @@ test("dictado: los resultados repetidos del celular se juntan en una sola frase"
   assert.deepEqual(heard, ["tengo que revisar el checklist y agregar algo", "ordenar la casa"]);
   assert.deepEqual(speechToTasks(heard.join(". ")), ["Revisar el checklist", "Agregar algo", "Ordenar la casa"]);
 });
+
+test("dictado: sin coma ni «y», un verbo nuevo después de un sustantivo es otra tarea", () => {
+  assert.deepEqual(speechToTasks("lavar ropa entre casa ordenar casa"), ["Lavar ropa entre casa", "Ordenar casa"]);
+  assert.deepEqual(speechToTasks("revisar el checklist agregar un par de cuestiones ordenar la casa"),
+    ["Revisar el checklist", "Agregar un par de cuestiones", "Ordenar la casa"]);
+  // pero no corta verbos que van juntos
+  for (const t of ["ir a comprar pan y leche", "llamar a Sara para pedir turno", "terminar de hacer el informe", "comprar comida para cocinar el viernes", "pagar el alquiler"])
+    assert.equal(speechToTasks(t).length, 1, t);
+});
+
+test("dictado: la misma frase corregida por el celular no se duplica", () => {
+  assert.deepEqual(mergeHeard(["lavar ropa en tre casa ordenar casa", "lavar ropa entre casa ordenar casa", "Lavar ropa entre casa, ordenar casa"]),
+    ["Lavar ropa entre casa, ordenar casa"]);
+  assert.deepEqual(speechToTasks("lavar ropa en tre casa, ordenar casa. Lavar ropa entre casa ordenar casa"), ["Lavar ropa en tre casa", "Ordenar casa"]);
+});

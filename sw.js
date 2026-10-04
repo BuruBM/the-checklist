@@ -1,10 +1,11 @@
 // Jardín de pendientes: funciona sin conexión.
-// La página se busca primero en la red (para recibir mejoras) y, sin conexión, sale de la caché.
-const CACHE = "jardin-v19";
+// La página y sus archivos se buscan primero en la red (para recibir mejoras) y, sin conexión, salen de la caché.
+const CACHE = "jardin-v20";
 const SHELL = ["./", "index.html", "css/app.css", "js/core.js", "js/classify.js", "js/app.js", "config.js", "vendor/supabase-2.117.1.js", "manifest.webmanifest", "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // "reload": sin pasar por la caché del navegador (GitHub Pages guarda 10 min), así nunca se guarda el código anterior
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: "reload" })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (e) => {
@@ -31,16 +32,17 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // Configuración: siempre la versión más nueva si hay red.
-  if (url.origin === self.location.origin && url.pathname.endsWith("/config.js")) {
-    e.respondWith(fetch(req.url, { cache: "no-cache" }).then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); return res; }).catch(() => caches.match(req)));
+  // Archivos propios (código, estilos, íconos): red primero, como la página, para que nunca se mezclen versiones.
+  const sameOrigin = url.origin === self.location.origin;
+  if (sameOrigin) {
+    e.respondWith(fetch(req.url, { cache: "no-cache" }).then((res) => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); } return res; })
+      .catch(() => caches.match(req, { ignoreSearch: true })));
     return;
   }
 
-  // Fuentes y archivos propios: caché primero, y se actualiza en segundo plano.
-  const sameOrigin = url.origin === self.location.origin;
+  // Fuentes: caché primero, y se actualiza en segundo plano.
   const fonts = url.hostname === "fonts.googleapis.com" || url.hostname === "fonts.gstatic.com";
-  if (!sameOrigin && !fonts) return;
+  if (!fonts) return;
   e.respondWith(
     caches.open(CACHE).then((c) =>
       c.match(req).then((hit) => {

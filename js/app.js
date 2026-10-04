@@ -1078,6 +1078,7 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
   $("add-size").addEventListener("click", () => setTimeout(updateAddHint, 0));
 
   $("pick-btn").addEventListener("click", () => setPicking(!picking));
+  $("app-version").textContent = "Versión 20 · 4 de octubre";   // subirla junto con CACHE en sw.js
 
   $("tabs").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-tab]"); if (!b) return;

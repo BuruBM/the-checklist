@@ -122,24 +122,34 @@
   }
 
   /* ---------- dictado: de lo hablado a una lista de tareas ---------- */
+  const keyOf = (s) => foldN(s).replace(/[^a-z0-9ñ]+/g, " ").trim();
+  const LITTLE = new Set(["a", "al", "la", "el", "los", "las", "lo", "de", "del", "en", "con", "y", "e", "un", "una", "unos", "unas", "para", "por", "que", "mi", "mis", "su", "sus", "le", "les", "me", "se"]);
+  const sigWords = (s) => new Set(keyOf(s).split(" ").filter(w => w && !LITTLE.has(w)));
+  // ¿Dicen lo mismo? (una contiene a la otra, o comparten casi todas las palabras: «lavar ropa en tre casa» ≈ «lavar ropa entre casa»)
+  function sameThing(a, b) {
+    const A = sigWords(a), B = sigWords(b);
+    const small = Math.min(A.size, B.size);
+    if (!small) return keyOf(a) === keyOf(b);
+    let common = 0; for (const w of A) if (B.has(w)) common++;
+    return common / small >= 0.75;
+  }
   // Algunos celulares (Chrome en Android) repiten lo ya reconocido: cada resultado trae el anterior
-  // completo o vuelve a mandar una frase. Nos quedamos con la versión más larga de cada frase.
+  // completo, vuelve a mandar una frase o la manda corregida. Queda una sola versión de cada frase, la más completa.
   function mergeHeard(parts) {
-    const key = (s) => foldN(s).replace(/[^a-z0-9ñ]+/g, " ").trim();
     const out = [];
     for (const raw of parts) {
-      const t = (raw || "").trim(), k = key(t);
-      if (!k) continue;
-      const last = out.length ? key(out[out.length - 1]) : "";
-      if (last && k.startsWith(last)) { out[out.length - 1] = t; continue; }
-      if (out.some(o => key(o).includes(k))) continue;
-      out.push(t);
+      const t = (raw || "").trim();
+      if (!keyOf(t)) continue;
+      const i = out.findIndex(o => sameThing(o, t) || keyOf(t).startsWith(keyOf(o)));
+      if (i < 0) { out.push(t); continue; }
+      if (sigWords(t).size >= sigWords(out[i]).size) out[i] = t;
     }
     return out;
   }
   // Sustantivos comunes que terminan como un infinitivo
   const NOT_VERBS = new Set(["lugar", "hogar", "collar", "taller", "mujer", "placer", "azucar", "dolar", "militar", "familiar", "celular", "particular",
-    "regular", "alquiler", "ayer", "super", "cualquier", "primer", "tercer", "alfiler", "bar", "mar", "par", "altar", "polar", "solar", "titular", "estar"]);
+    "regular", "alquiler", "ayer", "super", "cualquier", "primer", "tercer", "alfiler", "bar", "mar", "par", "altar", "polar", "solar", "titular", "estar",
+    "oscar", "javier", "omar", "edgar", "walter", "peter", "ester", "esther", "cesar", "baltasar", "gaspar", "aguilar", "escobar", "dormitorio"]);
   const isInfinitive = (w) => {
     const f = foldN(w).replace(/[^a-zñ]/g, "");
     if (f === "ir" || f === "irme" || f === "irse") return true;
@@ -151,6 +161,10 @@
   const INTENT = /^(?:(?:y|e|que|entonces|tambien|despues|ademas|bueno|ah)\s+)*(?:yo\s+)?(?:no\s+me\s+(?:tengo|puedo)\s+que?\s*olvidar\s+de|no\s+olvidarme\s+de|me\s+tengo\s+que\s+acordar\s+de|acordarme\s+de|tengo\s+que|tendria\s+que|hay\s+que|necesito|deberia|debo|quiero|me\s+falta|me\s+gustaria|tengo\s+pendiente)\s+/;
   const FILLERS = /(^|[\s,])(?:eh+m*|em+|mm+|bueno|o sea|digamos|viste)(?=$|[\s,.])/gi;
   const CONNECTORS = /\s*(?:[,;.!?:]+|\b(?:y\s+)?(?:despu[eé]s|luego|tambi[eé]n|adem[aá]s|aparte|otra cosa|por otro lado|por [uú]ltimo)(?![\p{L}]))\s*/iu;
+
+  // Palabras después de las cuales un verbo sigue siendo parte de la misma tarea («ir a comprar», «para cocinar», «tengo que llamar»)
+  const GLUE = new Set(["a", "al", "de", "del", "para", "por", "que", "sin", "en", "con", "el", "la", "lo", "le", "me", "te", "se", "y", "e", "o", "ni", "como",
+    "voy", "vamos", "puedo", "quiero", "necesito", "debo", "tengo", "hay", "sabe", "hacer", "dejar", "volver", "empezar", "terminar", "ir", "antes", "despues", "hasta", "mientras"]);
 
   // «tengo que revisar el checklist y agregar un par de cosas, después ordenar la casa»
   //   → ["Revisar el checklist", "Agregar un par de cosas", "Ordenar la casa"]
@@ -166,11 +180,14 @@
         const f = foldN(w);
         const next = words[i + 1];
         if ((f === "y" || f === "e") && cur.length && next && (isInfinitive(next) || STARTERS.has(foldN(next)))) { pieces.push(cur.join(" ")); cur = []; return; }
+        // sin coma ni «y»: un verbo nuevo después de un sustantivo empieza otra tarea («lavar ropa ordenar casa»)
+        const prev = cur.length ? foldN(cur[cur.length - 1]).replace(/[^a-zñ]/g, "") : "";
+        if (cur.length >= 2 && isInfinitive(w) && !GLUE.has(prev) && !isInfinitive(prev) && cur.some(x => isInfinitive(x))) { pieces.push(cur.join(" ")); cur = []; }
         cur.push(w);
       });
       if (cur.length) pieces.push(cur.join(" "));
     }
-    const seen = new Set(), out = [];
+    const out = [];
     for (let p of pieces) {
       // sacar «tengo que», «hay que», «necesito»… del principio (comparando sin tildes)
       for (let guard = 0; guard < 4; guard++) {
@@ -180,10 +197,11 @@
       }
       p = p.replace(/^(?:y|e)\s+/i, "").replace(/\s+(?:y|e)$/i, "").replace(/[\s,.;:!?¿¡-]+$/, "").replace(/^[\s,.;:!?¿¡-]+/, "").trim();
       if (p.length < 3 || !/\p{L}/u.test(p)) continue;
-      const k = foldN(p).replace(/[^a-z0-9ñ]+/g, " ").trim();
-      if (seen.has(k)) continue;
-      seen.add(k);
-      out.push(p.charAt(0).toUpperCase() + p.slice(1));
+      p = p.charAt(0).toUpperCase() + p.slice(1);
+      // la misma tarea dicha dos veces (o casi igual) queda una sola vez, en su versión más completa
+      const i = out.findIndex(o => sameThing(o, p));
+      if (i < 0) out.push(p);
+      else if (sigWords(p).size > sigWords(out[i]).size) out[i] = p;
     }
     return out;
   }
