@@ -46,7 +46,7 @@ export async function dump(page, text) { await page.fill("#dump-text", text); aw
 
 // Backend falso compartido por varios «dispositivos» (una fila boards, como en Supabase).
 export function fakeSupabase() {
-  const db = { row: null, session: null, online: true, pages: [], calls: [] };
+  const db = { row: null, session: null, online: true, pages: [], calls: [], subs: new Map() };
   db.handle = async (page, arg) => {
     db.calls.push(arg.op);
     if (arg.op === "session") return db.session;
@@ -55,6 +55,11 @@ export function fakeSupabase() {
     const q = arg.q;
     if (!db.online) return { data: null, error: { message: "Failed to fetch" } };
     const f = Object.fromEntries(q.filters);
+    if (q.table === "push_subs") {
+      if (q.op === "upsert") { db.subs.set(q.row.endpoint, { ...q.row }); return { error: null }; }
+      if (q.op === "select") return { data: db.subs.get(f.endpoint) || null, error: null };
+      if (q.op === "delete") { db.subs.delete(f.endpoint); return { error: null }; }
+    }
     if (q.table !== "boards") return { data: null, error: null };
     if (q.op === "select") return { data: db.row ? { state: db.row.state, rev: db.row.rev, updated_at: db.row.updated_at } : null, error: null };
     if (q.op === "insert") { if (db.row) return { error: { code: "23505", message: "dup" } }; db.row = q.row; notify(page); return { error: null }; }

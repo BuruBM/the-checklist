@@ -205,3 +205,49 @@ test("en un celular de 390 px nada se sale de la pantalla", async () => {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 390);
   await ctx.close();
 });
+
+test("avisos: quedan activados al volver a abrir, y se reconectan solos si el celular o Supabase los pierden", async () => {
+  const db = fakeSupabase();
+  const config = { supabaseUrl: "https://x.supabase.co", supabaseKey: "k", vapidPublicKey: "BHsU07a1UpJoMJR6Z9K1xtltomYkfaegBrDfVNNGdHAU3cgzrBk1wprCI6I2YJrVEfTxbl-T16zZopucV4CvS7s" };
+  const { page, errors, ctx } = await phone(browser, { config, stubSupabase: true, backend: db.handle });
+  await page.addInitScript(() => {
+    // celular de mentira: la suscripción push vive en localStorage («__sub») para sobrevivir a las recargas
+    const sub = () => { const ep = localStorage.getItem("__sub"); return ep ? { endpoint: ep, toJSON: () => ({ endpoint: ep, keys: { p256dh: "p", auth: "a" } }), unsubscribe: async () => { localStorage.removeItem("__sub"); return true; } } : null; };
+    const reg = { active: {}, pushManager: { getSubscription: async () => sub(), subscribe: async () => { localStorage.setItem("__sub", "https://push.example/" + Math.random().toString(36).slice(2)); return sub(); } } };
+    Object.defineProperty(navigator, "serviceWorker", { value: { getRegistration: async () => reg, ready: Promise.resolve(reg), register: async () => reg, addEventListener() {}, controller: null } });
+    window.PushManager = window.PushManager || function () {};
+    Object.defineProperty(Notification, "permission", { get: () => "granted" });
+    Notification.requestPermission = async () => "granted";
+  });
+  db.pages.push(page);
+  await page.goto(server.url);
+  await page.fill("#acc-email", "yo@mail.com"); await page.fill("#acc-pass", "secreto1"); await page.click("#acc-login");
+  await page.waitForSelector("#remind:not([hidden])");
+  await page.selectOption("#remind-hour", "8");
+  await page.click("#remind-on");
+  await page.waitForSelector("#remind-off:not([hidden])");
+  assert.equal(db.subs.size, 1);
+  const on = async () => { await page.reload(); await page.waitForSelector("#remind:not([hidden])"); await page.waitForTimeout(300); return page.locator("#remind-off").isVisible(); };
+
+  // 1) al día siguiente sigue activado, sin tocar nada
+  assert.equal(await on(), true);
+  // 2) Supabase borró la fila (el servidor creyó que el celular no respondía): se vuelve a guardar sola
+  db.subs.clear();
+  assert.equal(await on(), true);
+  assert.equal(db.subs.size, 1);
+  assert.match(await page.textContent("#remind-msg"), /volví a activar/);
+  assert.equal([...db.subs.values()][0].hour, 8);
+  // 3) el celular perdió la suscripción: se crea otra y se guarda
+  await page.evaluate(() => localStorage.removeItem("__sub"));
+  assert.equal(await on(), true);
+  assert.equal(db.subs.size, 2);
+  // 4) se borraron los datos de la app, pero en Supabase está: sigue activado y con su horario
+  await page.evaluate(() => localStorage.removeItem("jardin-remind"));
+  assert.equal(await on(), true);
+  assert.equal(await page.inputValue("#remind-hour"), "8");
+  // 5) desactivar queda desactivado
+  await page.click("#remind-off");
+  assert.equal(await on(), false);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});

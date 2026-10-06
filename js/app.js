@@ -1078,7 +1078,7 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
   $("add-size").addEventListener("click", () => setTimeout(updateAddHint, 0));
 
   $("pick-btn").addEventListener("click", () => setPicking(!picking));
-  $("app-version").textContent = "Versión 20 · 4 de octubre";   // subirla junto con CACHE en sw.js
+  $("app-version").textContent = "Versión 21 · 6 de octubre";   // subirla junto con CACHE en sw.js
 
   $("tabs").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-tab]"); if (!b) return;
@@ -1562,11 +1562,54 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
       remindMsg(/iphone|ipad/i.test(navigator.userAgent) ? "En iPhone primero instalá la app en la pantalla de inicio y abrila desde el ícono." : "Este navegador no permite notificaciones.");
       return;
     }
-    let sub = null;
-    try { const reg = await navigator.serviceWorker.getRegistration(); sub = reg ? await reg.pushManager.getSubscription() : null; } catch {}
-    const on = !!sub && !!remindSaved() && Notification.permission === "granted";
+    const st = await (remindCheck || (remindCheck = checkRemind()));
+    const on = st.on;
     $("remind-on").hidden = on; $("remind-test").hidden = !on; $("remind-off").hidden = !on; $("remind-extra").hidden = !on;
-    if (on && !$("remind-msg").textContent) remindMsg(`Activado en este dispositivo: mañana a las ${remindSaved().hour}:00.`);
+    if (st.msg) { remindMsg(st.msg); st.msg = ""; }
+    else if (on && !$("remind-msg").textContent) remindMsg(`Activado en este dispositivo: mañana a las ${$("remind-hour").value}:00.`);
+  }
+
+  // Una vez por apertura: si los avisos estaban activados y el celular o Supabase los perdieron
+  // (el navegador renovó la suscripción, o el servidor la borró porque dejó de responder), se reactivan solos.
+  let remindCheck = null;
+  const remindOff = () => { remindCheck = null; };
+  // la app puede quedar abierta en segundo plano varios días: revisar de nuevo al volver a ella
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && user && sb) { remindOff(); renderRemind(); } });
+  async function checkRemind() {
+    let reg = null, sub = null, row = null;
+    try { reg = await navigator.serviceWorker.getRegistration(); sub = reg ? await reg.pushManager.getSubscription() : null; } catch {}
+    const saved = remindSaved();
+    if (sub) {
+      let failed = false;
+      try {
+        const { data, error } = await sb.from("push_subs").select("hour, evening_hour, weekly").eq("endpoint", sub.endpoint).maybeSingle();
+        if (error) failed = true; else row = data || null;
+      } catch { failed = true; }
+      // sin conexión no se puede saber: se muestra lo de este teléfono y se revisa la próxima vez
+      if (failed) { remindCheck = null; return { on: !!saved && Notification.permission === "granted" }; }
+    }
+    if (row) {
+      // lo guardado en Supabase manda (por si se borraron los datos del navegador)
+      $("remind-hour").value = String(row.hour ?? 9);
+      $("remind-evening").value = row.evening_hour == null ? "" : String(row.evening_hour);
+      $("remind-weekly").checked = row.weekly !== false;
+      try { localStorage.setItem(REMIND_KEY, JSON.stringify({ hour: row.hour, evening: row.evening_hour ?? null, weekly: row.weekly !== false })); } catch {}
+    }
+    const wanted = !!row || !!saved;
+    if (!wanted) return { on: false };
+    if (Notification.permission !== "granted") {
+      return { on: false, msg: "El celular quitó el permiso de notificaciones para esta app. Tocá «Activar» para volver a darlo." };
+    }
+    if (sub && row) return { on: true };
+    // Faltaba algo: reactivar sin preguntar (el permiso ya está dado)
+    try {
+      reg = reg && reg.active ? reg : await navigator.serviceWorker.ready;
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(CFG.vapidPublicKey) });
+      await saveSub(sub);
+      return { on: true, msg: `Tus avisos se habían desconectado y los volví a activar: mañana a las ${$("remind-hour").value}:00.` };
+    } catch (e) {
+      return { on: false, msg: "Tus avisos se desconectaron y no pude reactivarlos solos. Tocá «Activar»." };
+    }
   }
 
   async function saveSub(sub) {
@@ -1597,6 +1640,7 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
       const reg = await navigator.serviceWorker.ready;
       const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(CFG.vapidPublicKey) });
       const hour = await saveSub(sub);
+      remindOff();
       remindMsg(`¡Listo! Todos los días a las ${hour}:00 te llega lo de hoy. Tocá «Probar ahora» para ver cómo se ve.`);
       chime(3);
     } catch (e) {
@@ -1627,6 +1671,7 @@ Responde SOLO con JSON: {"steps":["..."]}`, { modelTier: "quick" });
       if (sub) { await sb.from("push_subs").delete().eq("endpoint", sub.endpoint); await sub.unsubscribe(); }
     } catch {}
     try { localStorage.removeItem(REMIND_KEY); } catch {}
+    remindOff();
     remindMsg("Recordatorio desactivado en este dispositivo.");
     renderRemind();
   });
